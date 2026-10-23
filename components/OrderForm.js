@@ -13,7 +13,9 @@ export default function OrderForm({ products, delivery }) {
   const savedDraft = useRef("");
 
   const selected = products.find((p) => p.id === pkg) || products[0];
-  const charge = delivery.find((d) => d.id === area).charge;
+  // 1 tar beshi nile delivery free
+  const freeShip = selected ? qty[selected.id] > 1 : false;
+  const charge = freeShip ? 0 : delivery.find((d) => d.id === area).charge;
   const subtotal = selected ? selected.price * qty[selected.id] : 0;
   const total = subtotal + charge;
 
@@ -125,9 +127,10 @@ export default function OrderForm({ products, delivery }) {
             <label key={d.id} className={`radio ${area === d.id ? "active" : ""}`}>
               <input type="radio" name="area" checked={area === d.id} onChange={() => setArea(d.id)} />
               <span>{d.label}: </span>
-              <b>৳ {tk(d.charge)}</b>
+              <b>{freeShip ? <><s>৳ {tk(d.charge)}</s> ফ্রি</> : `৳ ${tk(d.charge)}`}</b>
             </label>
           ))}
+          <p className="free-ship">🎁 ২টি বা তার বেশি নিলে ডেলিভারি চার্জ ফ্রি!</p>
         </div>
 
         <div className="your-order">
@@ -138,7 +141,7 @@ export default function OrderForm({ products, delivery }) {
             <span>৳ {tk(subtotal)}</span>
           </div>
           <div className="row"><span>Subtotal</span><span>৳ {tk(subtotal)}</span></div>
-          <div className="row"><span>Shipment</span><span>৳ {tk(charge)}</span></div>
+          <div className="row"><span>Shipment</span><span>{freeShip ? "ফ্রি" : `৳ ${tk(charge)}`}</span></div>
           <div className="row total"><span>Total</span><span>৳ {tk(total)}</span></div>
 
           <div className="cod-box">

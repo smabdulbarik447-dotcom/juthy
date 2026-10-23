@@ -30,7 +30,8 @@ export async function POST(req) {
 
     // Dam server e hishab hoy, browser theke asha total bishshash kora hoy na
     const qty = Math.min(10, Math.max(1, Number(body.qty) || 1));
-    const total = product.price * qty + area.charge;
+    // 1 tar beshi nile delivery free
+    const total = product.price * qty + (qty > 1 ? 0 : area.charge);
     const name = String(body.name).trim().slice(0, 100);
     const address = String(body.address).trim().slice(0, 500);
 

@@ -384,6 +384,7 @@ button { font: inherit; cursor: pointer; }
 .cod-box { background: var(--card); border-radius: 12px; padding: 12px; margin: 10px 0; }
 .cod-box .radio { margin-bottom: 8px; }
 .hadith { font-size: .85rem; color: var(--muted); background: var(--bg); padding: 10px; border-radius: 8px; }
+.free-ship { font-size: .85rem; color: var(--muted); }
 .privacy { font-size: .8rem; color: var(--muted); margin-bottom: 14px; }
 .error { color: var(--red); font-weight: 600; margin-bottom: 10px; }
 
