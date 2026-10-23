@@ -4,7 +4,8 @@ import { useRef, useState } from "react";
 import { tk } from "@/data/site";
 
 export default function OrderForm({ products, delivery }) {
-  const [pkg, setPkg] = useState(products[0]?.id);
+  // Customer ekadhik variant eksathe nite pare
+  const [picked, setPicked] = useState(() => (products[0] ? [products[0].id] : []));
   const [qty, setQty] = useState(() => Object.fromEntries(products.map((p) => [p.id, 1])));
   const [area, setArea] = useState(delivery[0].id);
   const [status, setStatus] = useState("idle");
@@ -12,15 +13,20 @@ export default function OrderForm({ products, delivery }) {
   const formRef = useRef(null);
   const savedDraft = useRef("");
 
-  const selected = products.find((p) => p.id === pkg) || products[0];
-  // 1 tar beshi nile delivery free
-  const freeShip = selected ? qty[selected.id] > 1 : false;
+  const items = products.filter((p) => picked.includes(p.id));
+  const count = items.reduce((n, p) => n + qty[p.id], 0);
+  // 1 tar beshi item nile (eki variant ba alada) delivery free
+  const freeShip = count > 1;
   const charge = freeShip ? 0 : delivery.find((d) => d.id === area).charge;
-  const subtotal = selected ? selected.price * qty[selected.id] : 0;
+  const subtotal = items.reduce((t, p) => t + p.price * qty[p.id], 0);
   const total = subtotal + charge;
 
+  // Shesh variant ta uncheck kora jay na, kichu ekta selected thakbe
+  const toggle = (id) =>
+    setPicked((list) => (list.includes(id) ? (list.length > 1 ? list.filter((x) => x !== id) : list) : [...list, id]));
+
   const changeQty = (id, diff) => {
-    setPkg(id);
+    setPicked((list) => (list.includes(id) ? list : [...list, id]));
     setQty((q) => ({ ...q, [id]: Math.max(1, q[id] + diff) }));
   };
 
@@ -29,7 +35,7 @@ export default function OrderForm({ products, delivery }) {
     const form = new FormData(formRef.current);
     const phone = String(form.get("phone") || "").trim();
     if (!/^01[3-9]\d{8}$/.test(phone)) return;
-    const draft = { phone, website: form.get("website"), name: form.get("name"), address: form.get("address"), product: selected?.name };
+    const draft = { phone, website: form.get("website"), name: form.get("name"), address: form.get("address"), product: items.map((p) => p.name).join(", ") };
     const key = JSON.stringify(draft);
     if (key === savedDraft.current) return;
     savedDraft.current = key;
@@ -55,9 +61,8 @@ export default function OrderForm({ products, delivery }) {
           name: form.get("name"),
           phone,
           address: form.get("address"),
-          productId: selected.id,
+          items: items.map((p) => ({ productId: p.id, qty: qty[p.id] })),
           area,
-          qty: qty[selected.id],
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -71,7 +76,7 @@ export default function OrderForm({ products, delivery }) {
     }
   }
 
-  if (!selected) return <p className="checkout">এই মুহূর্তে কোনো পণ্য পাওয়া যাচ্ছে না।</p>;
+  if (!products.length) return <p className="checkout">এই মুহূর্তে কোনো পণ্য পাওয়া যাচ্ছে না।</p>;
 
   if (status === "done") {
     return (
@@ -89,10 +94,11 @@ export default function OrderForm({ products, delivery }) {
       {/* Bot dhorar fad: manush eta dekhe na, bot puron kore */}
       <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hp-field" aria-hidden="true" />
       <h3 className="form-head">পছন্দের ফ্লেভার কম্বো সিলেক্ট করুন</h3>
+      <p className="free-ship">একাধিক ফ্লেভার একসাথে সিলেক্ট করতে পারবেন</p>
       <div className="packages">
         {products.map((p) => (
-          <label key={p.id} className={`package ${pkg === p.id ? "active" : ""}`}>
-            <input type="radio" name="pkg" checked={pkg === p.id} onChange={() => setPkg(p.id)} />
+          <label key={p.id} className={`package ${picked.includes(p.id) ? "active" : ""}`}>
+            <input type="checkbox" name="pkg" checked={picked.includes(p.id)} onChange={() => toggle(p.id)} />
             {p.image && <img src={p.image} alt="" />}
             <div className="package-info">
               <span>{p.name}</span>
@@ -130,16 +136,18 @@ export default function OrderForm({ products, delivery }) {
               <b>{freeShip ? <><s>৳ {tk(d.charge)}</s> ফ্রি</> : `৳ ${tk(d.charge)}`}</b>
             </label>
           ))}
-          <p className="free-ship">🎁 ২টি বা তার বেশি নিলে ডেলিভারি চার্জ ফ্রি!</p>
+          <p className="free-ship">🎁 ২টি বা তার বেশি নিলে (একই বা ভিন্ন ফ্লেভার) ডেলিভারি চার্জ ফ্রি!</p>
         </div>
 
         <div className="your-order">
           <h3>Your order</h3>
           <div className="row head"><span>Product</span><span>Subtotal</span></div>
-          <div className="row">
-            <span>{selected.name} × {qty[selected.id]}</span>
-            <span>৳ {tk(subtotal)}</span>
-          </div>
+          {items.map((p) => (
+            <div className="row" key={p.id}>
+              <span>{p.name} × {qty[p.id]}</span>
+              <span>৳ {tk(p.price * qty[p.id])}</span>
+            </div>
+          ))}
           <div className="row"><span>Subtotal</span><span>৳ {tk(subtotal)}</span></div>
           <div className="row"><span>Shipment</span><span>{freeShip ? "ফ্রি" : `৳ ${tk(charge)}`}</span></div>
           <div className="row total"><span>Total</span><span>৳ {tk(total)}</span></div>
