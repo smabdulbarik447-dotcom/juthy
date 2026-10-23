@@ -10,7 +10,7 @@ export default async function ProductEdit({ params }) {
   const { id } = await params;
   const isNew = id === "new";
   const p = isNew
-    ? { id: "", name: "", price: "", old_price: "", stock: 100, image: "/images/combo.png", sort: 0, active: true }
+    ? { id: "", name: "", price: "", old_price: "", stock: 100, image: "/images/combo.png", sort: 0, active: true, free_delivery: false }
     : (await getProducts({ all: true })).find((x) => x.id === Number(id));
   if (!p) notFound();
 
@@ -54,6 +54,9 @@ export default async function ProductEdit({ params }) {
           </div>
           <label className="adm-check">
             <input type="checkbox" name="active" defaultChecked={p.active} /> সক্রিয় (ল্যান্ডিং পেজে দেখাবে)
+          </label>
+          <label className="adm-check">
+            <input type="checkbox" name="free_delivery" defaultChecked={p.free_delivery} /> ফ্রি ডেলিভারি (এটা নিলে ডেলিভারি চার্জ লাগবে না)
           </label>
         </SaveForm>
       </div>

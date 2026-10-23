@@ -99,6 +99,7 @@ export async function saveProduct(_prev, formData) {
   const sort = Math.round(Number(formData.get("sort")) || 0);
   const image = String(formData.get("image") || "").trim();
   const active = formData.get("active") === "on";
+  const freeDelivery = formData.get("free_delivery") === "on";
 
   if (!name || !(price > 0)) return { error: "নাম আর সঠিক দাম দিন" };
 
@@ -107,12 +108,12 @@ export async function saveProduct(_prev, formData) {
     if (old && old.image !== image) await deleteImages([old.image]);
     await sql`
       UPDATE products SET name = ${name}, price = ${price}, old_price = ${oldPrice}, stock = ${stock},
-        image = ${image}, sort = ${sort}, active = ${active}
+        image = ${image}, sort = ${sort}, active = ${active}, free_delivery = ${freeDelivery}
       WHERE id = ${id}`;
   } else {
     await sql`
-      INSERT INTO products (name, price, old_price, stock, image, sort, active)
-      VALUES (${name}, ${price}, ${oldPrice}, ${stock}, ${image}, ${sort}, ${active})`;
+      INSERT INTO products (name, price, old_price, stock, image, sort, active, free_delivery)
+      VALUES (${name}, ${price}, ${oldPrice}, ${stock}, ${image}, ${sort}, ${active}, ${freeDelivery})`;
   }
   refreshAll();
   redirect("/admin/products");

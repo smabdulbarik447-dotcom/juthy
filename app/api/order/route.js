@@ -35,8 +35,9 @@ export async function POST(req) {
 
     // Dam server e hishab hoy, browser theke asha total bishshash kora hoy na
     const qty = items.reduce((n, it) => n + it.qty, 0);
-    // 1 tar beshi item nile (eki variant ba alada) delivery free
-    const total = items.reduce((t, it) => t + it.product.price * it.qty, 0) + (qty > 1 ? 0 : area.charge);
+    // 1 tar beshi nile, ba "ফ্রি ডেলিভারি" deya variant nile delivery free
+    const freeShip = qty > 1 || items.some((it) => it.product.free_delivery);
+    const total = items.reduce((t, it) => t + it.product.price * it.qty, 0) + (freeShip ? 0 : area.charge);
     // Ekta variant hole shudhu nam; ekadhik hole "A × 1, B × 2"
     const productText =
       items.length === 1 ? items[0].product.name : items.map((it) => `${it.product.name} × ${it.qty}`).join(", ");
