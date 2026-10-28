@@ -11,7 +11,7 @@ export const site = {
   // Prothom bar database e ei product gulo boshbe — erpor admin panel (Products) theke change korben
   packages: [
     { id: "single", name: "প্রিমিয়াম ৪ ইন ১ কম্বো+৬ মিলি আতর", price: 990, oldPrice: 1499 },
-    { id: "double", name: "প্রিমিয়াম ৪ ইন ১ কম্বো+৬ মিলি আতর- 2 box", price: 1890, oldPrice: 2998 },
+    { id: "double", name: "প্রিমিয়াম ৪ ইন ১ কম্বো+৬ মিলি আতর- 2 box", price: 1890, oldPrice: 2998, boxes: 2 },
   ],
 
   delivery: [

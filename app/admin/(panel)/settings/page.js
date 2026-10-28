@@ -2,6 +2,7 @@ import { getSettings } from "@/lib/store";
 import { saveSettingsAction } from "../../actions";
 import SaveForm from "../SaveForm";
 import ImageInput from "../ImageInput";
+import AudioInput from "../AudioInput";
 
 export default async function SettingsPage() {
   const s = await getSettings();
@@ -27,6 +28,12 @@ export default async function SettingsPage() {
             <span>লোগো <small className="adm-muted">(PNG, স্বচ্ছ ব্যাকগ্রাউন্ড হলে ভালো — সাইটের হেডার, ফুটার, অ্যাডমিন আর ব্রাউজার ট্যাবে দেখাবে)</small></span>
             <ImageInput name="logo" defaultValue={s.logo} folder="logo" />
           </div>
+          <div className="adm-field">
+            <span>
+              ভয়েস <small className="adm-muted">(MP3, ৪ MB পর্যন্ত — কাস্টমার পেজে প্রথম টাচ/ক্লিক করলেই একবার বাজবে, পাশে 🔊/🔇 বাটন থাকবে)</small>
+            </span>
+            <AudioInput name="voice" defaultValue={s.voice} />
+          </div>
 
           <h3>যোগাযোগ</h3>
           <div className="adm-row">
@@ -51,6 +58,10 @@ export default async function SettingsPage() {
               <input name="delivery_outside" type="number" min="0" defaultValue={s.delivery_outside} />
             </label>
           </div>
+          <label>
+            মোট কত বক্স বা বেশি নিলে ডেলিভারি চার্জ ফ্রি (০ = বন্ধ)
+            <input name="free_delivery_boxes" type="number" min="0" defaultValue={s.free_delivery_boxes} />
+          </label>
         </SaveForm>
       </div>
     </>

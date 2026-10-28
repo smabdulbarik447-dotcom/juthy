@@ -1,5 +1,6 @@
 import { sql, ensureTables } from "@/lib/db";
 import { getSettings } from "@/lib/store";
+import { bdcKey } from "@/lib/bdcourier";
 import { saveSettingsAction, addBlockAction } from "../../actions";
 import SaveForm from "../SaveForm";
 import UnblockButton from "./UnblockButton";
@@ -42,6 +43,16 @@ export default async function FraudPage() {
               একই IP (ডিভাইস/নেটওয়ার্ক) থেকে ২৪ ঘণ্টায় সর্বোচ্চ অর্ডার
               <input name="fraud_ip_limit" type="number" min="0" max="100" defaultValue={s.fraud_ip_limit} />
               <small className="adm-muted">একজন অনেক নাম্বার দিয়ে ফেক অর্ডার দিলে আটকায়। ০ দিলে বন্ধ।</small>
+            </label>
+            <label>
+              BD Courier API Key {bdcKey(s) ? <span className="pill st-delivered">✓ চালু</span> : <span className="pill st-pending">বন্ধ</span>}
+              <input
+                name="bdc_api_key"
+                type="password"
+                autoComplete="new-password"
+                placeholder={bdcKey(s) ? "•••••••• (সেভ করা আছে)" : "bdcourier.com থেকে পাওয়া API key"}
+              />
+              <small className="adm-muted">প্রতিটি অর্ডারে কাস্টমারের নাম্বারের সব কুরিয়ারের রিসিভ/রিটার্ন % দেখাবে (অর্ডার পেজ ও Telegram এ)।</small>
             </label>
             <label>
               নাম ও ঠিকানা যাচাই

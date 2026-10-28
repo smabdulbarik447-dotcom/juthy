@@ -1,20 +1,22 @@
 import Script from "next/script";
+import { pixelIds } from "@/lib/store";
 
-// Admin > ট্র্যাকিং কোড theke deya Facebook Pixel ID ar GTM ID boshay
+// Admin > ট্র্যাকিং কোড theke deya Facebook Pixel ID (ekadhik) ar GTM ID boshay.
+// Shob pixel init korle fbq('track') er protita event shob pixel e jay.
 export default function Tracking({ pixel, gtm }) {
-  const pixelId = /^\d{5,20}$/.test(pixel) ? pixel : "";
+  const ids = pixelIds(pixel);
   const gtmId = /^GTM-[A-Z0-9]{4,12}$/.test(gtm) ? gtm : "";
 
   return (
     <>
-      {pixelId && (
+      {ids.length > 0 && (
         <Script id="fb-pixel" strategy="afterInteractive">{`
 !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
 n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
 n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
 document,'script','https://connect.facebook.net/en_US/fbevents.js');
-fbq('init','${pixelId}');fbq('track','PageView');fbq('track','ViewContent');`}</Script>
+${ids.map((id) => `fbq('init','${id}');`).join("")}fbq('track','PageView');fbq('track','ViewContent');`}</Script>
       )}
       {gtmId && (
         <Script id="gtm" strategy="afterInteractive">{`

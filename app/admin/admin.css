@@ -303,3 +303,51 @@
 .courier-bulk { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 @media (max-width: 900px) { .courier-bulk { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .adm .courier-btns { justify-content: flex-start; } }
+.adm .courier-send.carrybee { background: #ca8a04; }
+.adm .courier-send.carrybee:hover { background: #a16207; }
+.adm-narrow-half { max-width: calc(50% - 11px); }
+@media (max-width: 900px) { .adm-narrow-half { max-width: none; } }
+
+/* Manual order */
+.manual-sum { display: grid; gap: 4px; background: #f9fafb; border: 1px solid var(--a-line); border-radius: 10px; padding: 12px 14px; }
+.manual-sum div { display: flex; justify-content: space-between; font-size: .93rem; }
+.manual-sum .total { border-top: 1px dashed #d1d5db; padding-top: 6px; margin-top: 2px; font-size: 1.05rem; color: var(--a-accent-2); }
+.manual-done { text-align: center; padding: 20px 0; display: grid; gap: 10px; justify-items: center; }
+.success-icon-a { width: 60px; height: 60px; border-radius: 50%; background: #dcfce7; color: var(--a-green); display: grid; place-items: center; font-size: 1.8rem; font-weight: 700; }
+.pixel-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .88rem; color: #374151; }
+.pixel-list code { background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
+.audio-input { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.audio-input audio { height: 40px; max-width: 100%; }
+.capi-rules { margin: 0 0 16px; padding-top: 0; border-top: 0; }
+.capi-row { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--a-line); border-radius: 10px; background: #f9fafb; }
+.capi-row code { background: #eef2ff; padding: 1px 6px; border-radius: 4px; }
+.capi-steps { padding-left: 20px; display: grid; gap: 6px; font-size: .92rem; margin-bottom: 8px; }
+.capi-h { font-size: .98rem; margin: 14px 0 6px; }
+.capi-steps .adm-btn { margin-top: 6px; }
+
+/* Order customer info edit */
+.adm .edit-link { background: none; border: 0; color: var(--a-muted); font-size: .85rem; cursor: pointer; padding: 0; }
+.adm .edit-link:hover { color: var(--a-accent-2); }
+.adm .edit-info { display: grid; gap: 6px; }
+.adm .edit-info input, .adm .edit-info textarea { width: 100%; padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; font-size: .9rem; }
+.adm .edit-btns { display: flex; gap: 6px; }
+.webhook-url { display: block; background: #f3f4f6; border: 1px dashed #d1d5db; border-radius: 8px; padding: 10px 12px; font-size: .85rem; word-break: break-all; user-select: all; margin-bottom: 4px; }
+
+/* Date range filter + money summary */
+.range-filter { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: -6px 0 18px; }
+.range-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.range-tabs a { background: #fff; color: #4b5563; border: 1px solid var(--a-line); padding: 6px 13px; border-radius: 999px; font-size: .88rem; }
+.range-tabs a.active { background: var(--a-accent); color: #fff; border-color: var(--a-accent); }
+.range-custom { display: flex; align-items: center; gap: 6px; font-size: .88rem; color: var(--a-muted); }
+.range-custom input { padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; font-size: .85rem; background: #fff; }
+.range-label { background: #fff7ed; color: var(--a-accent-2); border: 1px solid #fed7aa; padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: .9rem; }
+.adm-card .card-sub { display: block; font-style: normal; color: var(--a-muted); font-size: .8rem; margin-top: 2px; }
+.adm-status .st-amount { display: block; font-size: .8rem; font-weight: 600; opacity: .85; margin-top: 2px; }
+.adm .order-summary { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; background: #fff; border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0, 0, 0, .05); }
+.adm .order-summary > span { flex: 1 1 100%; font-weight: 600; color: var(--a-accent-2); font-size: .9rem; }
+.adm .order-summary div { flex: 1; min-width: 150px; background: #f9fafb; border-radius: 10px; padding: 8px 12px; }
+.adm .order-summary small { display: block; color: var(--a-muted); font-size: .8rem; }
+.adm .order-summary b { font-size: 1.05rem; }
+.adm .order-summary b.ok { color: var(--a-green); }
+.adm .order-summary b.bad { color: var(--a-red); }
+@media (max-width: 600px) { .range-custom { width: 100%; } .range-custom input { flex: 1; min-width: 0; } }

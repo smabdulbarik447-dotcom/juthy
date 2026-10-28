@@ -1,4 +1,6 @@
 import { timingSafeEqual } from "crypto";
+import { after } from "next/server";
+import { afterStatusChange } from "@/lib/orderHooks";
 import { revalidatePath } from "next/cache";
 import { sql, ensureTables, STATUSES } from "@/lib/db";
 import { getSettings } from "@/lib/store";
@@ -62,6 +64,8 @@ export async function POST(req) {
       let toast = "";
       if (action === "st" && STATUSES.some((s) => s.id === status)) {
         await sql`UPDATE orders SET status = ${status} WHERE id = ${orderId}`;
+        // কনফার্ম e Facebook Purchase, রিটার্ন e OrderReturned
+        after(() => afterStatusChange(orderId, status));
         toast = `স্ট্যাটাস: ${STATUSES.find((s) => s.id === status).label}`;
         // কনফার্ম korle nije theke courier e entry
         if (status === "confirmed") {
@@ -88,8 +92,9 @@ export async function POST(req) {
           const { tracking } = await sendOrderToCourier(orderId, courier);
           toast = `${COURIERS[courier].icon} ${COURIERS[courier].name} এ পাঠানো হয়েছে — ট্র্যাকিং ${tracking}`;
         } catch (err) {
+          console.error("Courier send failed", courier, orderId, err.message);
           await tg("answerCallbackQuery", { callback_query_id: cb.id, text: `❌ ${err.message}`, show_alert: true });
-          return Response.json({ ok: true });
+          return Response.json({ ok: true, error: err.message });
         }
       } else if (action === "ub") {
         await sql`DELETE FROM blocked WHERE (kind = 'phone' AND value = ${o.phone}) OR (kind = 'ip' AND value = ${o.ip || "-"})`;

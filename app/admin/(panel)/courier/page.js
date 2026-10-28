@@ -2,8 +2,10 @@ import { sql, ensureTables } from "@/lib/db";
 import { getSettings } from "@/lib/store";
 import { sfReady, sfKeyInvalid, getBalance } from "@/lib/steadfast";
 import { pathaoReady, pathaoCredsSet, pathaoKeyInvalid, getPathaoStores } from "@/lib/pathao";
+import { carrybeeReady, carrybeeCredsSet, carrybeeKeyInvalid, getCarrybeeStores } from "@/lib/carrybee";
 import { COURIERS, readyCouriers } from "@/lib/courier";
-import { saveCourierAction, savePathaoAction, saveDefaultCourier } from "../../actions";
+import { webhookKey } from "@/lib/courierSync";
+import { saveCourierAction, savePathaoAction, saveCarrybeeAction, saveDefaultCourier } from "../../actions";
 import SaveForm from "../SaveForm";
 import { BulkSendButton, SyncButton } from "./CourierButtons";
 
@@ -16,7 +18,7 @@ export default async function CourierPage() {
   let sfBalance = null;
   let sfError = "";
   if (sfKeyInvalid(s)) {
-    sfError = "API Key ভুল ছিল — সঠিক Key দিয়ে আবার সেভ করুন (ভুল Key দিয়ে বারবার চেষ্টা করলে Steadfast অ্যাকাউন্ট লক করতে পারে)";
+    sfError = `Steadfast বলেছে: ${s.steadfast_last_error || "Unauthorized"} — API Key আর Secret Key দুটোই নতুন করে পেস্ট করে একবার সেভ করুন (বারবার ভুল চেষ্টা করলে Steadfast অ্যাকাউন্ট লক করতে পারে)`;
   } else if (sfReady(s)) {
     try {
       sfBalance = await getBalance(s);
@@ -37,6 +39,21 @@ export default async function CourierPage() {
       ptError = err.message;
     }
   }
+
+  // CarryBee obostha + store list
+  let cbStores = [];
+  let cbError = "";
+  if (carrybeeKeyInvalid(s)) {
+    cbError = "API তথ্য ভুল ছিল — সঠিক তথ্য দিয়ে আবার সেভ করুন";
+  } else if (carrybeeCredsSet(s)) {
+    try {
+      cbStores = await getCarrybeeStores(s);
+    } catch (err) {
+      cbError = err.message;
+    }
+  }
+
+  const webhookUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || "juthy.vercel.app"}/api/courier-webhook/${webhookKey()}`;
 
   const [counts] = await sql`
     SELECT count(*) FILTER (WHERE status = 'confirmed' AND courier_id = '')::int AS waiting,
@@ -105,7 +122,23 @@ export default async function CourierPage() {
           <li>📦 অর্ডার পেজে আর Telegram এ প্রতিটি অর্ডারে চালু কুরিয়ারগুলোর বাটন — চাপলেই এন্ট্রি হয়ে যাবে</li>
           <li>🚚 পাঠানোর পর অর্ডার নিজে থেকে <b>শিপড</b> হয়, ট্র্যাকিং লিংক সেভ থাকে</li>
           <li>💰 COD = অর্ডারের মোট টাকা (ডেলিভারি চার্জসহ)</li>
-          <li>🔄 প্রতিদিন সন্ধ্যা ৬টায় দুই কুরিয়ারের স্ট্যাটাস নিজে থেকে চেক হয় — ডেলিভারড/রিটার্ন হলে অর্ডারও আপডেট হয়</li>
+          <li>🔄 প্রতিদিন সন্ধ্যা ৬টায় সব কুরিয়ারের স্ট্যাটাস নিজে থেকে চেক হয় — ডেলিভারড/রিটার্ন হলে অর্ডারও আপডেট হয়</li>
+        </ul>
+      </div>
+
+      <div className="adm-box">
+        <h3>⚡ কুরিয়ার মার্ক করলেই সাথে সাথে স্ট্যাটাস আপডেট (Webhook)</h3>
+        <p className="adm-muted adm-intro-sm">
+          কুরিয়ার “Delivered” বা “Returned” মার্ক করলে নিচের লিংকে আমাদের জানাবে — অর্ডার সাথে সাথে <b>ডেলিভারড/রিটার্ন</b> হবে,
+          Telegram এ জানাবে আর রিটার্ন হলে Facebook এও যাবে। লিংকটা কপি করে প্রতিটি কুরিয়ারের প্যানেলে বসান:
+        </p>
+        <code className="webhook-url">{webhookUrl}</code>
+        <ul className="fraud-always">
+          <li>📮 <b>Steadfast:</b> মার্চেন্ট প্যানেল → API / Webhook সেটিংস → Webhook URL এ পেস্ট করুন</li>
+          <li>🛵 <b>Pathao:</b> মার্চেন্ট প্যানেল → Developer API → Webhook → Callback URL এ পেস্ট করুন, সব ইভেন্ট টিক দিন</li>
+          <li>🐝 <b>CarryBee:</b> মার্চেন্ট প্যানেল → Developer/Webhook → URL এ পেস্ট করুন</li>
+          <li>🔒 লিংকে গোপন কোড আছে — কাউকে দেবেন না। কুরিয়ারের পাঠানো তথ্য সরাসরি মানা হয় না, কুরিয়ারের API থেকে আবার যাচাই করে তবেই বদলায়।</li>
+          <li>🔄 Webhook না বসালেও চলবে: অ্যাডমিন প্যানেল খুললেই (১০ মিনিটে একবার) আর প্রতিদিন সন্ধ্যা ৬টায় নিজে থেকে চেক হয়।</li>
         </ul>
       </div>
 
@@ -190,6 +223,49 @@ export default async function CourierPage() {
             )}
           </SaveForm>
         </div>
+      </div>
+      <div className="adm-box adm-narrow-half">
+        <h3>🐝 CarryBee {badge(carrybeeReady(s), cbError)}</h3>
+        {carrybeeReady(s) && !cbError && <p className="adm-muted">স্টোর: <b>{s.carrybee_store_name || s.carrybee_store_id}</b></p>}
+        {cbError && <p className="adm-err">{cbError}</p>}
+        <p className="adm-muted adm-intro-sm">
+          CarryBee মার্চেন্ট প্যানেল (merchant.carrybee.com) → API/Developer অপশন থেকে <b>Client ID</b>, <b>Client Secret</b> আর <b>Client Context</b> কপি করে দিন।
+          ঠিকানা থেকে শহর/এলাকা CarryBee নিজেই বের করে নেয়।
+        </p>
+        <SaveForm action={saveCarrybeeAction} button="সেভ ও কানেক্ট চেক করুন">
+          <div className="adm-row">
+            <label>
+              Client ID
+              <input name="carrybee_client_id" defaultValue={s.carrybee_client_id} autoComplete="off" required />
+            </label>
+            <label>
+              Client Secret
+              <input
+                name="carrybee_client_secret"
+                type="password"
+                autoComplete="new-password"
+                placeholder={s.carrybee_client_secret ? "•••••••• (সেভ করা আছে)" : "Client Secret"}
+                required={!s.carrybee_client_secret}
+              />
+            </label>
+          </div>
+          <label>
+            Client Context
+            <input name="carrybee_client_context" defaultValue={s.carrybee_client_context} autoComplete="off" required />
+          </label>
+          {cbStores.length > 0 && (
+            <label>
+              পিকআপ স্টোর
+              <select name="carrybee_store_id" defaultValue={s.carrybee_store_id}>
+                {cbStores.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name}{st.address ? ` — ${st.address}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </SaveForm>
       </div>
     </>
   );

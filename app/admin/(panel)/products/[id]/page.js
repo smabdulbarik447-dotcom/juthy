@@ -10,7 +10,7 @@ export default async function ProductEdit({ params }) {
   const { id } = await params;
   const isNew = id === "new";
   const p = isNew
-    ? { id: "", name: "", price: "", old_price: "", stock: 100, image: "/images/combo.png", sort: 0, active: true, free_delivery: false }
+    ? { id: "", name: "", price: "", old_price: "", stock: 100, image: "/images/combo.png", sort: 0, active: true, boxes: 1 }
     : (await getProducts({ all: true })).find((x) => x.id === Number(id));
   if (!p) notFound();
 
@@ -48,15 +48,16 @@ export default async function ProductEdit({ params }) {
               <input name="sort" type="number" defaultValue={p.sort} />
             </label>
           </div>
+          <label>
+            এই প্যাকেজে কয়টি বক্স (ফ্রি ডেলিভারি হিসাবের জন্য — “2 box” প্যাকেজ হলে ২)
+            <input name="boxes" type="number" min="1" defaultValue={p.boxes || 1} />
+          </label>
           <div className="adm-field">
             <span>পণ্যের ছবি</span>
             <ImageInput name="image" defaultValue={p.image} folder="products" />
           </div>
           <label className="adm-check">
             <input type="checkbox" name="active" defaultChecked={p.active} /> সক্রিয় (ল্যান্ডিং পেজে দেখাবে)
-          </label>
-          <label className="adm-check">
-            <input type="checkbox" name="free_delivery" defaultChecked={p.free_delivery} /> ফ্রি ডেলিভারি (এটা নিলে ডেলিভারি চার্জ লাগবে না)
           </label>
         </SaveForm>
       </div>

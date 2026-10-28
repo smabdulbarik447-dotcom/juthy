@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateStatus, updateNote, deleteOrder, blockOrder, unblock, sendToCourier } from "../../actions";
+import { updateStatus, updateNote, updateOrderInfo, deleteOrder, blockOrder, unblock, sendToCourier, checkPhoneAction } from "../../actions";
 
 // Steadfast er status (Pathao er status English e ashe, sheta i dekhai)
 const COURIER_STATUS = {
@@ -52,6 +52,68 @@ const autoMsg = (a) =>
     ? `✅ কনফার্ম হয়েছে, কিন্তু ${a.courier} এ অটো পাঠানো যায়নি:\n${a.error}`
     : `✅ কনফার্ম + ${a.courier} এ এন্ট্রি হয়েছে\nট্র্যাকিং: ${a.tracking}`;
 
+// Customer er nam/number/thikana — "✏️ এডিট" chaaple oikhanei bodlano jay
+function CustomerInfo({ o, run }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ name: o.name, phone: o.phone, address: o.address, area: o.area });
+  const [error, setError] = useState("");
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  if (!editing) {
+    return (
+      <div>
+        <b className="cust">{o.name}</b>
+        <div className="contact">
+          <a href={`tel:${o.phone}`}>📞 {o.phone}</a>
+          <a href={`https://wa.me/88${o.phone}`} target="_blank" rel="noreferrer">💬 WhatsApp</a>
+          <button type="button" className="edit-link" onClick={() => setEditing(true)}>✏️ এডিট</button>
+          {["confirmed", "shipped", "delivered"].includes(o.status) && (
+            <a href={o.wa_link} target="_blank" rel="noreferrer" className={`wa-confirm ${o.wa_sent ? "sent" : ""}`} title="WhatsApp এ কনফার্ম মেসেজ পাঠান">
+              {o.wa_sent ? "✓ মেসেজ গেছে" : "💬 কনফার্ম মেসেজ"}
+            </a>
+          )}
+        </div>
+        <p className="addr">📍 {o.address}</p>
+        {o.ip && <small className="ip">IP: {o.ip}</small>}
+      </div>
+    );
+  }
+
+  const save = () =>
+    run(async () => {
+      const r = await updateOrderInfo(o.id, form);
+      if (r?.error) return setError(r.error);
+      if (r?.totalChanged) alert(`ডেলিভারি এলাকা বদলেছে — নতুন মোট ৳${r.total}`);
+      if (r?.warning) alert(r.warning);
+      setError("");
+      setEditing(false);
+    });
+
+  return (
+    <div className="edit-info">
+      <input value={form.name} onChange={set("name")} placeholder="নাম" />
+      <input value={form.phone} onChange={set("phone")} placeholder="01XXXXXXXXX" inputMode="numeric" />
+      <textarea value={form.address} onChange={set("address")} rows={2} placeholder="পূর্ণ ঠিকানা (এলাকা, থানা, জেলা)" />
+      <select value={form.area} onChange={set("area")}>
+        {Object.entries(AREA).map(([id, label]) => (
+          <option key={id} value={id}>{label}</option>
+        ))}
+      </select>
+      {error && <small className="adm-err">{error}</small>}
+      <div className="edit-btns">
+        <button type="button" className="adm-btn sm" onClick={save}>✓ সেভ</button>
+        <button
+          type="button"
+          className="adm-btn sm ghost"
+          onClick={() => { setForm({ name: o.name, phone: o.phone, address: o.address, area: o.area }); setError(""); setEditing(false); }}
+        >
+          বাতিল
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Customer er ager order dekhe jhuki bojha: beshi বাতিল/রিটার্ন = লাল
 function Risk({ h }) {
   if (!h || h.total <= 1) return <span className="risk new">🆕 নতুন কাস্টমার</span>;
@@ -63,7 +125,51 @@ function Risk({ h }) {
   );
 }
 
-const AREA = { inside: "ঢাকার ভেতরে", outside: "ঢাকার বাইরে" };
+// BD Courier: shob courier e ei number er parcel — koto % রিসিভ, koto % রিটার্ন
+function CourierHistory({ o, run }) {
+  const [error, setError] = useState("");
+  const h = o.courierHist;
+  const refresh = () =>
+    run(async () => {
+      setError("");
+      const res = await checkPhoneAction(o.phone);
+      if (res?.error) setError(res.error);
+    });
+
+  let body;
+  if (!h) {
+    body = <span className="chist none">📦 হিস্টরি নেই</span>;
+  } else if (!h.total) {
+    body = <span className="chist new">🆕 আগে কোনো পার্সেল নেই</span>;
+  } else {
+    const level = h.rate >= 80 ? "good" : h.rate >= 50 ? "mid" : "bad";
+    const verdict = { good: "ভরসাযোগ্য কাস্টমার", mid: "সাবধানে কনফার্ম করুন", bad: "ঝুঁকিপূর্ণ কাস্টমার" }[level];
+    body = (
+      <span
+        className={`chist big ${level}`}
+        title={h.couriers.map((c) => `${c.name}: ${c.total} (রিসিভ ${c.delivered}, রিটার্ন ${c.returned})`).join("\n")}
+      >
+        <span className="chist-ring" style={{ "--p": h.rate }}><b>{h.rate}%</b></span>
+        <span className="chist-txt">
+          <span className="chist-verdict">{level === "good" ? "🛡️" : level === "mid" ? "⚠️" : "🚨"} {verdict}</span>
+          <span className="chist-nums">✅ রিসিভ <b>{h.rate}%</b> <i>|</i> ↩️ রিটার্ন <b>{100 - h.rate}%</b></span>
+          <span className="chist-bar"><em style={{ width: `${h.rate}%` }} /></span>
+          <small>{h.delivered}/{h.total} পার্সেল রিসিভ{h.reports > 0 ? ` • ⚠️ ${h.reports} রিপোর্ট` : ""}</small>
+        </span>
+      </span>
+    );
+  }
+  return (
+    <>
+      {body}
+      {/* Nije theke ashe; dorkar hole notun kore anar choto button */}
+      <button type="button" className="chist-refresh" onClick={refresh} title="BD Courier থেকে নতুন করে আনুন">⟳</button>
+      {error && <small className="adm-err">{error}</small>}
+    </>
+  );
+}
+
+const AREA = { inside:"ঢাকার ভেতরে", outside: "ঢাকার বাইরে" };
 
 const fmtDate = (iso) =>
   new Date(iso).toLocaleString("en-GB", {
@@ -90,7 +196,7 @@ function downloadCsv(rows) {
   a.click();
 }
 
-export default function OrdersTable({ orders, statuses, initialFilter, couriers = [] }) {
+export default function OrdersTable({ orders, statuses, initialFilter, couriers = [], rangeLabel = "সব সময়" }) {
   const router = useRouter();
   const [filter, setFilter] = useState(initialFilter);
   const [q, setQ] = useState("");
@@ -109,8 +215,32 @@ export default function OrdersTable({ orders, statuses, initialFilter, couriers 
 
   const run = (fn) => startTransition(async () => { await fn(); router.refresh(); });
 
+  // Ekhon je order gulo dekhacche (shomoy + status + search) tar taka-r hishab
+  const sum = (arr) => arr.reduce((n, o) => n + o.total, 0);
+  const good = list.filter((o) => ["confirmed", "shipped", "delivered"].includes(o.status));
+  const pendingList = list.filter((o) => o.status === "pending");
+  const cancelled = list.filter((o) => o.status === "cancelled");
+  const returned = list.filter((o) => o.status === "returned");
+  // Nit profit: shudhu ডেলিভারড order, tar delivery charge bade
+  const delivered = list.filter((o) => o.status === "delivered");
+  const netProfit = delivered.reduce((n, o) => n + o.total - (o.delivery || 0), 0);
+  const tk = (n) => `৳${n.toLocaleString("en-IN")}`;
+
   return (
     <section className={`orders ${pending ? "busy" : ""}`}>
+      <div className="order-summary">
+        <span>📅 {rangeLabel}{filter !== "all" ? ` • ${label[filter]}` : ""}{q.trim() ? ` • "${q.trim()}"` : ""}</span>
+        <div><small>মোট অর্ডার</small><b>{list.length}টি • {tk(sum(list))}</b></div>
+        <div><small>কনফার্মড বিক্রি</small><b className="ok">{good.length}টি • {tk(sum(good))}</b></div>
+        <div title="শুধু ডেলিভারড অর্ডার, ডেলিভারি চার্জ বাদে — শুধু পণ্যের দাম">
+          <small>নিট প্রফিট (ডেলিভারড)</small>
+          <b className="ok">{delivered.length}টি • {tk(netProfit)}</b>
+        </div>
+        <div><small>পেন্ডিং</small><b className="wait">{pendingList.length}টি • {tk(sum(pendingList))}</b></div>
+        <div><small>বাতিল</small><b className="bad">{cancelled.length}টি • {tk(sum(cancelled))}</b></div>
+        <div><small>রিটার্ন</small><b className="bad">{returned.length}টি • {tk(sum(returned))}</b></div>
+      </div>
+
       <div className="toolbar">
         <div className="tabs">
           <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>
@@ -144,15 +274,8 @@ export default function OrdersTable({ orders, statuses, initialFilter, couriers 
               <Risk h={o.history} />
 
               <div className="order-body">
-                <div>
-                  <b className="cust">{o.name}</b>
-                  <div className="contact">
-                    <a href={`tel:${o.phone}`}>📞 {o.phone}</a>
-                    <a href={`https://wa.me/88${o.phone}`} target="_blank" rel="noreferrer">💬 WhatsApp</a>
-                  </div>
-                  <p className="addr">📍 {o.address}</p>
-                  {o.ip && <small className="ip">IP: {o.ip}</small>}
-                </div>
+                <CustomerInfo o={o} run={run} />
+                <div className="order-rate"><CourierHistory o={o} run={run} /></div>
                 <div className="order-prod">
                   <span>{o.product || "—"}</span>
                   <small>Qty: {o.qty} • {AREA[o.area] || o.area}</small>

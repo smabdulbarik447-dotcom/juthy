@@ -1,4 +1,5 @@
 import "../admin.css";
+import "../admin-theme.css";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { getSettings } from "@/lib/store";

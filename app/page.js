@@ -1,40 +1,79 @@
 import { site, bn, tk } from "@/data/site";
 import { getSettings, getProducts, deliveryOptions } from "@/lib/store";
+import { getContent, fillTokens, tokenVars } from "@/lib/content";
 import Gallery from "@/components/Gallery";
 import Collection from "@/components/Collection";
 import OrderForm from "@/components/OrderForm";
 import Tracking from "@/components/Tracking";
 import Brand from "@/components/Brand";
+import VoicePlayer from "@/components/VoicePlayer";
+import Reveal from "@/components/Reveal";
+import RevealInit from "@/components/RevealInit";
+import "./motion.css";
+
+// Admin > ল্যান্ডিং পেজ টেক্সট er lekha + {price} er moto token boshano
+async function loadPage() {
+  const [s, products] = await Promise.all([getSettings(), getProducts()]);
+  const delivery = deliveryOptions(s);
+  const main = products[0] || { price: site.price, old_price: site.oldPrice };
+  const oldPrice = main.old_price || main.price;
+  const vars = tokenVars({ price: main.price, oldPrice, brand: s.brand, delivery, freeBoxes: Number(s.free_delivery_boxes) || 0 });
+  const content = getContent(s);
+  const t = (k) => fillTokens(content.text[k], vars);
+  return { s, products, delivery, main, oldPrice, content, vars, t };
+}
+
+// [ ] er bhitorer lekha sonali highlight
+function H({ text }) {
+  return String(text)
+    .split(/(\[[^\]]*\])/)
+    .map((part, i) => (part.startsWith("[") && part.endsWith("]") ? <span key={i} className="grad">{part.slice(1, -1)}</span> : part));
+}
 
 export async function generateMetadata() {
-  const [s, products] = await Promise.all([getSettings(), getProducts()]);
-  const price = products[0]?.price ?? site.price;
+  const { s, t } = await loadPage();
   return {
     ...(s.logo ? { icons: { icon: s.logo, apple: s.logo } } : {}),
-    title: `সিগনেচার পারফিউম কম্বো — মাত্র ${price} টাকা | ${s.brand}`,
-    description: "৪ ইন ১ সিগনেচার পারফিউম কম্বো + ১টি সিক্রেট ৬ মিলি আতর ফ্রি। সারা দেশে ক্যাশ অন ডেলিভারি।",
+    title: t("meta_title"),
+    description: t("meta_desc"),
   };
 }
 
 export default async function Home() {
-  const s = await getSettings();
-  const products = await getProducts();
-  const delivery = deliveryOptions(s);
-  const main = products[0] || { price: site.price, old_price: site.oldPrice };
-  const oldPrice = main.old_price || main.price;
-  const save = oldPrice - main.price;
-  const off = Math.round((save / oldPrice) * 100);
+  const { s, products, delivery, main, oldPrice, content, vars, t } = await loadPage();
+  const L = content.lists;
+  const fill = (str) => fillTokens(str, vars);
   // Mul product er chobi i upore boro kore dekhay, tarpor banner er chobi gulo
   const productImage = main.image || "/images/combo.png";
   const banners = s.gallery.split("\n").map((x) => x.trim()).filter(Boolean);
   const gallery = [productImage, ...banners.filter((src) => src !== productImage)];
+  const freeBoxes = Number(s.free_delivery_boxes) || 0;
+  const info1 = freeBoxes > 0 ? t("info1_text") : `ঢাকা ${bn(delivery[0].charge)}৳ / বাইরে ${bn(delivery[1].charge)}৳`;
+
+  // Order form er lekha (client component e pathai)
+  const formText = Object.fromEntries(
+    ["form_head", "billing_title", "name_label", "name_ph", "address_label", "address_ph", "phone_label", "shipping_title",
+      "free_hint", "free_done", "summary_title", "cod_label", "hadith", "privacy", "submit_btn", "success_title", "success_text"]
+      .map((k) => [k, t(k)])
+  );
+  const colText = Object.fromEntries(
+    ["col_card_sub", "col_volume", "col_notes_label", "col_vibe_label", "col_btn"].map((k) => [k, t(k)])
+  );
+  const perfumes = L.perfumes.map((p, i) => ({
+    ...p,
+    image: p.image || site.perfumes[i]?.image || "/images/combo.png",
+    notes: String(p.notes || "").split(",").map((x) => x.trim()).filter(Boolean),
+  })).filter((p) => p.name || p.short);
 
   return (
     <>
+      <RevealInit />
       <Tracking pixel={s.fb_pixel} gtm={s.gtm_id} />
+      <VoicePlayer src={s.voice} />
+      <Reveal />
       <div className="topbar">
-        <span>🔥 স্পেশাল অফার: ৪ ইন ১ সিগনেচার কম্বো মাত্র {bn(main.price)} টাকা + ১ টি সিক্রেট ৬ মিলি আতর সম্পূর্ণ ফ্রি!</span>
-        <span className="topbar-cod">ক্যাশ অন ডেলিভারি (খুলে চেক করার সুবিধা)</span>
+        <span>{t("topbar")}</span>
+        <span className="topbar-cod">{t("topbar_cod")}</span>
       </div>
 
       <header className="header">
@@ -42,7 +81,7 @@ export default async function Home() {
           <Brand s={s} />
           <div className="header-actions">
             <a href={`tel:${s.phone}`} className="header-phone">📞 {s.phone}</a>
-            <a href="#order" className="btn btn-sm">অর্ডার করুন</a>
+            <a href="#order" className="btn btn-sm">{t("header_btn")}</a>
           </div>
         </div>
       </header>
@@ -51,57 +90,57 @@ export default async function Home() {
       <section className="hero">
         <div className="container">
           <div className="offer-strip">
-            🔥 <b>অফার:</b> সিগনেচার কম্বো মাত্র {bn(main.price)} টাকায় + ১ টি সিক্রেট ৬ মিলি আতর ফ্রি!
-            <span>সারা দেশে ক্যাশ অন ডেলিভারি</span>
+            {t("offer_strip")}
+            <span>{t("offer_strip_sub")}</span>
           </div>
 
           <div className="hero-grid">
-            <Gallery images={gallery} brand={s.brand} />
+            <Gallery images={gallery} brand={s.brand} badge={t("gallery_badge")} />
 
             <div className="hero-info">
-              <span className="eyebrow">✨ PREMIUM COLLECTION</span>
-              <h1>সিগনেচার পারফিউম কম্বো</h1>
-              <p className="hero-sub">আপনার ব্যক্তিত্বকে ফুটিয়ে তুলতে একটি আদর্শ চয়েজ</p>
+              <span className="eyebrow">{t("hero_eyebrow")}</span>
+              <h1><H text={t("hero_title")} /></h1>
+              <p className="hero-sub">{t("hero_sub")}</p>
               <div className="rating">
-                <span className="stars">★★★★★</span> <b>4.9 / 5.0</b> <small>(১,০০০+ ভেরিফাইড রিভিউ)</small>
+                <span className="stars">★★★★★</span> <b>{t("rating")}</b> <small>{t("rating_note")}</small>
               </div>
 
               <div className="features">
-                {site.features.map((f) => (
-                  <div key={f.title} className="feature">
+                {L.features.filter((f) => f.title).map((f, i) => (
+                  <div key={i} className="feature">
                     <span className="feature-icon">{f.icon}</span>
                     <div>
-                      <b>{f.title}</b>
-                      <p>{f.text}</p>
+                      <b>{fill(f.title)}</b>
+                      <p>{fill(f.text)}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
               <div className="price-card">
-                <span className="price-label">অফার মূল্য:</span>
+                <span className="price-label">{t("price_label")}</span>
                 <div className="price-row">
                   <span className="price-new">৳{tk(main.price)}</span>
                   <del>৳{tk(oldPrice)}</del>
                 </div>
-                <span className="save">{bn(save)} টাকা সাশ্রয় ({bn(off)}% ছাড়)</span>
+                <span className="save">{t("save_text")}</span>
               </div>
 
               <div className="gift-note">
                 <img src="/images/gift.png" alt="Secret Perfume 6ml" />
                 <div>
-                  <b>🎁 সাথে পাচ্ছেন ১টি সিক্রেট 6 মিলি "Secret Perfume"</b>
-                  <p>লং-লাস্টিং প্রিমিয়াম আতর সম্পূর্ণ ফ্রি!</p>
+                  <b>{t("gift_title")}</b>
+                  <p>{t("gift_sub")}</p>
                 </div>
               </div>
 
-              <a href="#order" className="btn btn-block btn-lg">অর্ডার করতে এখানে ক্লিক করুন 👉</a>
-              <a href={`https://wa.me/${s.whatsapp}`} target="_blank" rel="noreferrer" className="btn-wa">💬 হোয়াটসঅ্যাপে অর্ডার</a>
+              <a href="#order" className="btn btn-block btn-lg">{t("hero_btn")}</a>
+              <a href={`https://wa.me/${s.whatsapp}`} target="_blank" rel="noreferrer" className="btn-wa">{t("wa_btn")}</a>
 
               <div className="mini-info">
-                <div><b>🚚 হোম ডেলিভারি</b><small>ঢাকা {bn(delivery[0].charge)}৳ / বাইরে {bn(delivery[1].charge)}৳</small></div>
-                <div><b>💵 ক্যাশ অন ডেলিভারি</b><small>হাতে পেয়ে মূল্য পরিশোধ</small></div>
-                <div><b>🎁 ফ্রি গিফট আতর</b><small>৬ মিলি সিক্রেট পারফিউম</small></div>
+                <div><b>{t("info1_title")}</b><small>{info1}</small></div>
+                <div><b>{t("info2_title")}</b><small>{t("info2_text")}</small></div>
+                <div><b>{t("info3_title")}</b><small>{t("info3_text")}</small></div>
               </div>
             </div>
           </div>
@@ -109,16 +148,18 @@ export default async function Home() {
       </section>
 
       {/* Collection */}
-      <section className="section">
-        <div className="container">
-          <div className="section-head">
-            <span className="eyebrow">✨ এক্সক্লুসিভ কালেকশন</span>
-            <h2>বেস্ট সেলিং <span className="grad">৪টি ইউনিক সুবাস</span></h2>
-            <p>অফিস, মিটিং, ক্যাজুয়াল কিংবা নাইট পার্টি—যেকোনো মুহূর্তের জন্য ৪টি ভিন্ন মেজাজের মাস্টারপিস সুবাস</p>
+      {perfumes.length > 0 && (
+        <section className="section">
+          <div className="container">
+            <div className="section-head">
+              <span className="eyebrow">{t("col_eyebrow")}</span>
+              <h2><H text={t("col_title")} /></h2>
+              <p>{t("col_text")}</p>
+            </div>
+            <Collection perfumes={perfumes} text={colText} />
           </div>
-          <Collection />
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Free gift */}
       <section className="section alt">
@@ -127,10 +168,10 @@ export default async function Home() {
             <img src="/images/gift.png" alt="Secret Perfume 6ml" />
           </div>
           <div>
-            <span className="eyebrow">🎁 ফ্রি বোনাস উপহার</span>
-            <h2>সাথে আরো পাচ্ছেন ১ টি সিক্রেট 6 মিলি <span className="grad">"Secret Perfume"</span> সম্পূর্ণ ফ্রি!</h2>
-            <p className="muted">৪টি ১৫ মিলি বোতলের সাথে ১টি স্পেশাল আতর ফ্রি দেওয়া হচ্ছে আপনার সুবাসের অভিজ্ঞতাকে পরিপূর্ণ করতে।</p>
-            <a href="#order" className="btn">অফারটি লুফে নিন (৳{bn(main.price)})</a>
+            <span className="eyebrow">{t("gift_eyebrow")}</span>
+            <h2><H text={t("gift_heading")} /></h2>
+            <p className="muted">{t("gift_text")}</p>
+            <a href="#order" className="btn">{t("gift_btn")}</a>
           </div>
         </div>
       </section>
@@ -139,48 +180,48 @@ export default async function Home() {
       <section className="section">
         <div className="container">
           <div className="section-head">
-            <span className="eyebrow">⚖️ কেন আমরা সেরা</span>
-            <h2>আসল পারফিউম বনাম <span className="grad">সাধারণের পার্থক্য</span></h2>
-            <p>বাজারে সস্তা পারফিউমের ভিড়ে কেন এই সিগনেচার কম্বো আপনার ব্যক্তিত্বের জন্য একমাত্র সঠিক নির্বাচন?</p>
+            <span className="eyebrow">{t("cmp_eyebrow")}</span>
+            <h2><H text={t("cmp_title")} /></h2>
+            <p>{t("cmp_text")}</p>
           </div>
 
           <div className="compare">
             <div className="compare-col good">
               <div className="compare-head">
-                <img src="/images/hawas-ice.avif" alt="সিগনেচার কম্বো" />
+                <img src="/images/hawas-ice.avif" alt={t("good_title")} />
                 <div>
-                  <small>১০০% আসল প্রিমিয়াম</small>
-                  <h3>সিগনেচার কম্বো</h3>
+                  <small>{t("good_small")}</small>
+                  <h3>{t("good_title")}</h3>
                 </div>
               </div>
-              {site.pros.map((p) => (
-                <div key={p.title} className="compare-item">
+              {L.pros.filter((p) => p.title).map((p, i) => (
+                <div key={i} className="compare-item">
                   <span className="mark">✓</span>
-                  <div><b>{p.title}</b><p>{p.text}</p></div>
+                  <div><b>{fill(p.title)}</b><p>{fill(p.text)}</p></div>
                 </div>
               ))}
-              <div className="trust-pill">🛡️ ৯৮% রিপিট কাস্টমার ও সন্তুষ্ট গ্রাহকের আস্থা!</div>
+              <div className="trust-pill">{t("trust")}</div>
             </div>
 
             <div className="compare-col bad">
               <div className="compare-head">
                 <span className="bad-icon">❌</span>
                 <div>
-                  <small>বাজারের লোকাল কপি</small>
-                  <h3>সাধারণ সস্তা পারফিউম</h3>
+                  <small>{t("bad_small")}</small>
+                  <h3>{t("bad_title")}</h3>
                 </div>
               </div>
-              {site.cons.map((c) => (
-                <div key={c.title} className="compare-item">
+              {L.cons.filter((c) => c.title).map((c, i) => (
+                <div key={i} className="compare-item">
                   <span className="mark">✕</span>
-                  <div><b>{c.title}</b><p>{c.text}</p></div>
+                  <div><b>{fill(c.title)}</b><p>{fill(c.text)}</p></div>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="center">
-            <a href="#order" className="btn btn-lg">আসল সিগনেচার কম্বো অর্ডার করুন 👉</a>
+            <a href="#order" className="btn btn-lg">{t("cmp_btn")}</a>
           </div>
         </div>
       </section>
@@ -189,30 +230,30 @@ export default async function Home() {
       <section className="section alt">
         <div className="container">
           <div className="section-head">
-            <span className="eyebrow">✨ স্পেশাল অফার প্যাকেজ</span>
-            <h2>এক্সক্লুসিভ <span className="grad">অফার প্যাকেজ</span></h2>
-            <p>{s.brand} সিগনেচার কম্বো প্যাকের সাথে লুফে নিন আকর্ষণীয় ডিসকাউন্ট ও ফ্রি গিফট</p>
+            <span className="eyebrow">{t("pkg_eyebrow")}</span>
+            <h2><H text={t("pkg_title")} /></h2>
+            <p>{t("pkg_text")}</p>
           </div>
 
           <div className="package-card">
             <div className="package-img">
-              <img src={productImage} alt={`${s.brand} এক্সক্লুসিভ অফার প্যাকেজ`} />
+              <img src={productImage} alt={t("pkg_name")} />
             </div>
             <div className="package-body">
-              <h3>{s.brand} সিগনেচার কম্বো প্যাক</h3>
-              <p className="muted">৪ ইন ১ প্রিমিয়াম পারফিউম সেট (১৫ মিলি প্রতিটি)</p>
+              <h3>{t("pkg_name")}</h3>
+              <p className="muted">{t("pkg_sub")}</p>
               <div className="price-row">
                 <span className="price-new">৳{bn(main.price)}.০০</span>
                 <del>৳{bn(oldPrice)}.০০</del>
               </div>
-              <span className="save">{bn(save)} টাকা সাশ্রয় ({bn(off)}% ছাড়)</span>
+              <span className="save">{t("save_text")}</span>
               <ul className="checks">
-                <li><b>৪টি প্রিমিয়াম EDP পারফিউম:</b> ভ্যাম্পায়ার ব্লাড, ডিওর সভেজ, হাওয়াস আইস ও হাওয়াস ফায়ার।</li>
-                <li><b>মোট ৬০ মিলি কন্সেন্ট্রেটেড পারফিউম:</b> যা দেবে দীর্ঘ ৬-৭ ঘণ্টার স্থায়ী সুবাস।</li>
-                <li><b>ক্যাশ অন ডেলিভারি:</b> সারা বাংলাদেশে ডেলিভারি ম্যানের সামনে প্যাকেট খুলে চেক করে নেওয়ার সুবিধা।</li>
+                {L.checks.filter((c) => c.bold || c.text).map((c, i) => (
+                  <li key={i}><b>{fill(c.bold)}</b> {fill(c.text)}</li>
+                ))}
               </ul>
-              <div className="gift-line">🎁 সাথে পাচ্ছেন ১টি সিক্রেট ৬ মিলি "Secret Perfume" আতর সম্পূর্ণ ফ্রি!</div>
-              <a href="#order" className="btn btn-block btn-lg">অর্ডার করতে এখানে ক্লিক করুন (৳{bn(main.price)}) 👉</a>
+              <div className="gift-line">{t("pkg_gift")}</div>
+              <a href="#order" className="btn btn-block btn-lg">{t("pkg_btn")}</a>
             </div>
           </div>
         </div>
@@ -221,9 +262,9 @@ export default async function Home() {
       {/* COD banner */}
       <section className="container">
         <div className="cod-banner">
-          <h2>সারা বাংলাদেশে ক্যাশ অন ডেলিভারি!</h2>
-          <p>পার্সেল হাতে পেয়ে দেখে দেখে মূল্য পরিশোধ করার সুবিধা।</p>
-          <a href="#order" className="btn">অর্ডার করুন</a>
+          <h2>{t("cod_title")}</h2>
+          <p>{t("cod_text")}</p>
+          <a href="#order" className="btn">{t("cod_btn")}</a>
         </div>
       </section>
 
@@ -231,22 +272,20 @@ export default async function Home() {
       <section className="section" id="order">
         <div className="container">
           <div className="section-head">
-            <h2>অর্ডার করতে আপনার তথ্য দিয়ে <span className="grad">নিচের ফরমটি পুরন করুন</span></h2>
+            <h2><H text={t("order_title")} /></h2>
           </div>
-          <OrderForm products={products} delivery={delivery} />
+          <OrderForm products={products} delivery={delivery} freeBoxes={freeBoxes} text={formText} />
         </div>
       </section>
 
       <footer className="footer">
         <Brand s={s} className="center-brand" />
-        <p>যেকোনো প্রয়োজনে কল করুন: <a href={`tel:${s.phone}`}>{s.phone}</a></p>
-        <small>© {new Date().getFullYear()} {s.brand}. All rights reserved.</small>
+        <p>{t("footer_call")} <a href={`tel:${s.phone}`}>{s.phone}</a></p>
+        <small>{t("footer_copy")}</small>
       </footer>
 
-      <div className="sticky-bar">
-        <a href={`https://wa.me/${s.whatsapp}`} className="sticky-wa" target="_blank" rel="noreferrer">💬</a>
-        <a href="#order" className="btn">অর্ডার করুন ৳{bn(main.price)}</a>
-      </div>
+      {/* Mobile e shudhu WhatsApp er gol button (nicher order bar sorano hoyeche) */}
+      <a href={`https://wa.me/${s.whatsapp}`} className="float-wa" target="_blank" rel="noreferrer" aria-label="WhatsApp">💬</a>
     </>
   );
 }

@@ -26,7 +26,6 @@ body {
   color: var(--text);
   font-family: "Hind Siliguri", system-ui, sans-serif;
   line-height: 1.6;
-  padding-bottom: 76px;
   overflow-x: hidden;
 }
 img { max-width: 100%; display: block; }
@@ -384,7 +383,6 @@ button { font: inherit; cursor: pointer; }
 .cod-box { background: var(--card); border-radius: 12px; padding: 12px; margin: 10px 0; }
 .cod-box .radio { margin-bottom: 8px; }
 .hadith { font-size: .85rem; color: var(--muted); background: var(--bg); padding: 10px; border-radius: 8px; }
-.free-ship { font-size: .85rem; color: var(--muted); }
 .privacy { font-size: .8rem; color: var(--muted); margin-bottom: 14px; }
 .error { color: var(--red); font-weight: 600; margin-bottom: 10px; }
 
@@ -401,19 +399,13 @@ button { font: inherit; cursor: pointer; }
 .footer { text-align: center; padding: 40px 16px; border-top: 1px solid var(--line); color: var(--muted); }
 .center-brand { justify-content: center; margin-bottom: 12px; text-align: left; color: var(--text); }
 .footer a { color: var(--gold); }
-.sticky-bar {
-  position: fixed; inset: auto 0 0 0; z-index: 50;
-  display: flex; gap: 10px; padding: 10px 16px;
-  background: rgba(11, 7, 20, .95); border-top: 1px solid var(--line);
-  backdrop-filter: blur(8px);
+.float-wa {
+  position: fixed; right: 16px; bottom: 20px; z-index: 50;
+  width: 52px; height: 52px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 1.4rem;
+  background: #25d366; box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
 }
-.sticky-bar .btn { flex: 1; padding: 12px; }
-.sticky-wa { width: 50px; display: grid; place-items: center; background: #25d366; border-radius: 999px; font-size: 1.3rem; }
-
-@media (min-width: 900px) {
-  .sticky-bar { display: none; }
-  body { padding-bottom: 0; }
-}
+@media (min-width: 900px) { .float-wa { display: none; } }
 @media (max-width: 900px) {
   .hero-grid, .spotlight, .gift-grid, .compare, .package-card, .checkout-grid { grid-template-columns: 1fr; }
   .gallery { position: static; }
@@ -432,3 +424,23 @@ button { font: inherit; cursor: pointer; }
 .hp-field { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .brand-logo { height: 46px; width: auto; max-width: 200px; object-fit: contain; }
 .footer .brand-logo { height: 56px; margin: 0 auto; }
+.free-ship { background: rgba(245, 196, 81, .1); border: 1px dashed var(--gold); color: var(--gold-2); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-weight: 600; font-size: .92rem; }
+.free-ship.on { background: rgba(52, 211, 153, .12); border-color: var(--green); color: var(--green); }
+.radio b del { color: var(--muted); font-weight: 400; margin-right: 4px; }
+
+/* Voice on/off button */
+.voice-wrap { position: fixed; left: 16px; bottom: 20px; z-index: 60; display: flex; align-items: center; gap: 8px; }
+.voice-toggle {
+  width: 48px; height: 48px; border-radius: 50%; flex: none;
+  border: 1px solid var(--line); background: rgba(26, 18, 48, .92); color: var(--text);
+  font-size: 1.3rem; display: grid; place-items: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .35); cursor: pointer;
+}
+.voice-toggle.on, .voice-toggle.wait { border-color: var(--gold); animation: pulse 2s infinite; }
+.voice-hint {
+  background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #1f1305;
+  border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 700; font-size: .9rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .35); cursor: pointer; animation: voice-bounce 1.6s ease-in-out infinite;
+}
+@keyframes voice-bounce { 50% { transform: translateX(4px); } }
+

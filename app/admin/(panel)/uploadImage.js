@@ -1,6 +1,6 @@
 // Browser e chobi max 1400px webp kore choto kore tarpor /api/upload e pathay
 async function shrink(file, maxSize = 1400) {
-  if (file.type === "image/gif" || file.type === "image/svg+xml") return file;
+  if (!file.type.startsWith("image/") || file.type === "image/gif" || file.type === "image/svg+xml") return file;
   try {
     const bitmap = await createImageBitmap(file);
     const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
