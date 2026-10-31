@@ -11,6 +11,7 @@ import Sidebar from "./Sidebar";
 import Icon from "./Icon";
 import HoverFX from "./HoverFX";
 import CourierAutoSync from "./CourierAutoSync";
+import LiveOrders from "./LiveOrders";
 
 export const metadata = { title: "Admin Panel", robots: { index: false } };
 
@@ -48,6 +49,7 @@ export default async function PanelLayout({ children }) {
       <main className="adm-main">{children}</main>
       <HoverFX />
       <CourierAutoSync />
+      <LiveOrders />
     </div>
   );
 }

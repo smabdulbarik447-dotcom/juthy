@@ -73,8 +73,8 @@ html, body { overflow-x: clip; }
 
 /* ---- Bam / dan theke asha (Reveal.js class dey) ---- */
 /* Reveal cholar agei prothom screen er jinish lukano (RevealInit.js) — dekha diye hariye jaoa thamay */
-.rv-js :is(.hero-info > *, .gallery, .section-head > *, .ex-card, .spot-img, .spot-body > *, .gift-img,
-  .gift-grid > div > *, .compare-head, .compare-item, .trust-pill, .offer-strip, .compare + .center, .package-img, .package-body > *, .cod-banner > *, .checkout, .footer > *) { opacity: 0; }
+.rv-js :is(.hero-info > *, .gallery, .section:not(#order) .section-head > *, .ex-card, .spot-img, .spot-body > *, .gift-img,
+  .gift-grid > div > *, .compare-head, .compare-item, .trust-pill, .offer-strip, .compare + .center, .package-img, .package-body > *, .cod-banner > *, .footer > *) { opacity: 0; }
 /* Screen er baire thakle lukano + pashe shora; screen e ashlei (rv-in) slide kore jaygay boshe — protibar */
 .rv:not(.rv-in) { opacity: 0; }
 .rv-l:not(.rv-in) { transform: translateX(-140px); }

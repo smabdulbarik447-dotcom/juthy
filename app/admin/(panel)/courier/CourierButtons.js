@@ -2,7 +2,29 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { sendConfirmedToCourier, syncCouriersAction } from "../../actions";
+import { sendConfirmedToCourier, syncCouriersAction, toggleCourierAction } from "../../actions";
+
+// Key boshano thakleo courier bondho/chalu korar switch
+export function CourierToggle({ id, name, off }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  return (
+    <button
+      type="button"
+      className={`courier-toggle ${off ? "is-off" : "is-on"}`}
+      disabled={pending}
+      onClick={() =>
+        (off || confirm(`${name} ডিসকানেক্ট করবেন? Key সেভ থাকবে, পরে এক ক্লিকে আবার চালু করা যাবে।`)) &&
+        startTransition(async () => {
+          await toggleCourierAction(id, off);
+          router.refresh();
+        })
+      }
+    >
+      {pending ? "..." : off ? "🔌 কানেক্ট করুন" : "⏻ ডিসকানেক্ট"}
+    </button>
+  );
+}
 
 export function BulkSendButton({ waiting, courier, name, disabled }) {
   const router = useRouter();

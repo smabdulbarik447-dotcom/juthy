@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { sql, ensureTables, STATUSES, orderCode } from "@/lib/db";
-import { saveSettings, getProducts, getSettings, deliveryOptions, deliveryCharge, pixelIds } from "@/lib/store";
+import { saveSettings, getProducts, getSettings, deliveryOptions, deliveryCharge, pixelIds, orderDelivery } from "@/lib/store";
 import { checkPassword, login, logout, requireAdmin } from "@/lib/auth";
 import { deleteImages } from "@/lib/images";
 import { getBalance } from "@/lib/steadfast";
@@ -59,30 +59,37 @@ export async function updateOrderInfo(id, info) {
   if (!name || !address) return { error: "নাম আর ঠিকানা খালি রাখা যাবে না" };
   if (!/^01[3-9]\d{8}$/.test(phone)) return { error: "সঠিক ১১ ডিজিটের মোবাইল নাম্বার দিন" };
 
-  const [o] = await sql`SELECT name, phone, address, area, product, qty, total, courier_id, courier FROM orders WHERE id = ${id}`;
+  const [o] = await sql`SELECT name, phone, address, area, product, qty, total, courier_id, courier, delivery_fee FROM orders WHERE id = ${id}`;
   if (!o) return { error: "অর্ডার পাওয়া যায়নি" };
 
-  // ঢাকার ভেতরে/বাইরে bodlale: purono delivery charge bad, notun ta jog (discount thakle seta thik thake)
+  // Mot taka = poner dam + delivery. Elaka ba ফ্রি ডেলিভারি bodlale delivery notun kore hishab (discount thik thake)
   const settings = await getSettings();
+  const products = await getProducts({ all: true });
   const areas = deliveryOptions(settings);
   const newArea = areas.find((a) => a.id === info?.area) || areas.find((a) => a.id === o.area);
-  let total = o.total;
-  if (newArea && newArea.id !== o.area) {
-    const product = (await getProducts({ all: true })).find((p) => p.name === o.product);
-    const oldArea = areas.find((a) => a.id === o.area);
-    const oldCharge = oldArea ? deliveryCharge(settings, oldArea, product, o.qty) : 0;
-    total = Math.max(0, o.total - oldCharge + deliveryCharge(settings, newArea, product, o.qty));
-  }
   const area = newArea?.id || o.area;
+  const free = Boolean(info?.free);
+  const deliveryFee = free ? 0 : null;
+  const itemsTotal = o.total - orderDelivery(settings, products, o);
+  const newDelivery = free || !newArea ? 0 : deliveryCharge(settings, newArea, products.find((p) => p.name === o.product), o.qty);
+  let total = Math.max(0, itemsTotal + newDelivery);
+  // Admin nije mot taka bodlale shetai thakbe
+  const typed = Math.round(Number(info?.total));
+  if (info?.total !== undefined && info?.total !== "" && Number.isFinite(typed) && typed !== o.total) {
+    if (typed < 0 || typed > 1000000) return { error: "সঠিক টাকার পরিমাণ দিন" };
+    total = typed;
+  }
 
-  await sql`UPDATE orders SET name = ${name}, phone = ${phone}, address = ${address}, area = ${area}, total = ${total} WHERE id = ${id}`;
+  await sql`UPDATE orders SET name = ${name}, phone = ${phone}, address = ${address}, area = ${area}, total = ${total}, delivery_fee = ${deliveryFee} WHERE id = ${id}`;
   refreshAdmin();
 
   const changed = [
     o.name !== name && "নাম",
     o.phone !== phone && "নাম্বার",
     o.address !== address && "ঠিকানা",
-    o.area !== area && `এলাকা (${newArea.label}, মোট ৳${total})`,
+    o.area !== area && `এলাকা (${newArea.label})`,
+    (o.delivery_fee === 0) !== free && (free ? "🚚 ফ্রি ডেলিভারি" : "ডেলিভারি চার্জ চালু"),
+    o.total !== total && `টাকা (মোট ৳${total})`,
   ].filter(Boolean);
   if (changed.length) after(() => syncOrder(id, { change: `✏️ <b>${changed.join(", ")} আপডেট হয়েছে</b>` }));
   // Courier e age i pathano thakle sekhane nijer theke bodlay na — janiye dei
@@ -246,6 +253,106 @@ export async function blockValue(kind, value, reason = "") {
 
 // Order card er "কুরিয়ার হিস্টরি" button — BD Courier theke notun kore ane
 // Admin khola thakle courier status ana (CourierAutoSync); kichu bodlale page refresh hoy
+/* ---------- Facebook Ads ---------- */
+
+export async function saveAdsSetupAction(_prev, formData) {
+  await requireAdmin();
+  const { getAccount } = await import("@/lib/fbads");
+  const values = { fb_ad_account: String(formData.get("fb_ad_account") || "").replace(/\D/g, "") };
+  // Token khali rakhle purono ta i thake
+  const token = String(formData.get("fb_ads_token") || "").trim();
+  if (token) values.fb_ads_token = token;
+  await saveSettings(values);
+  refreshAdmin();
+  try {
+    const a = await getAccount(await getSettings());
+    return { ok: true, at: Date.now(), name: a.name };
+  } catch (err) {
+    return { error: `সেভ হয়েছে, কিন্তু Facebook কানেক্ট হয়নি: ${err.message}` };
+  }
+}
+
+export async function saveAdsRulesAction(_prev, formData) {
+  await requireAdmin();
+  const num = (k) => String(Math.max(0, Number(formData.get(k)) || 0) || "");
+  await saveSettings({
+    ads_rule: formData.get("ads_rule") === "on" ? "on" : "off",
+    ads_max_cpa: num("ads_max_cpa"),
+    ads_min_spend: num("ads_min_spend"),
+    ads_report: formData.get("ads_report") === "on" ? "on" : "off",
+  });
+  refreshAdmin();
+  return { ok: true, at: Date.now() };
+}
+
+export async function adsToggleAction(id, on) {
+  await requireAdmin();
+  const { setAdStatus } = await import("@/lib/fbads");
+  try {
+    await setAdStatus(await getSettings(), String(id), Boolean(on));
+    refreshAdmin();
+    return { ok: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+export async function adsBudgetAction(id, amount) {
+  await requireAdmin();
+  const n = Number(amount);
+  if (!(n > 0)) return { error: "সঠিক বাজেট দিন" };
+  const { setDailyBudget } = await import("@/lib/fbads");
+  try {
+    await setDailyBudget(await getSettings(), String(id), n);
+    refreshAdmin();
+    return { ok: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+export async function adsRunRulesAction() {
+  await requireAdmin();
+  const { runAdRules } = await import("@/lib/fbads");
+  try {
+    const r = await runAdRules({ force: true });
+    refreshAdmin();
+    return { ok: true, paused: r.paused.map((p) => p.name) };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+// Dashboard theke ek click e আজকের হিসাব Telegram e
+export async function sendTodayReportAction() {
+  await requireAdmin();
+  const { summaryText } = await import("@/lib/telegram");
+  try {
+    await sendToAll(await summaryText("today"));
+    return { ok: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+// Admin khola thakle notun order ashlei popup — afterId er porer order gulo (0 = shudhu shesh id)
+export async function newOrdersAction(afterId) {
+  await requireAdmin();
+  const [{ max }] = await sql`SELECT COALESCE(max(id), 0)::bigint AS max FROM orders`;
+  if (!afterId) return { last: Number(max), orders: [] };
+  const rows = await sql`
+    SELECT id, name, product, qty, total, address, area FROM orders
+    WHERE id > ${afterId} ORDER BY id LIMIT 5`;
+  const { districtOf } = await import("@/lib/districts");
+  return {
+    last: Number(max),
+    orders: rows.map((o) => ({
+      id: Number(o.id), name: o.name, product: o.product, qty: o.qty, total: o.total,
+      place: districtOf(o.address, o.area) || "",
+    })),
+  };
+}
+
 export async function courierAutoSyncAction() {
   await requireAdmin();
   try {
@@ -399,6 +506,18 @@ export async function saveDefaultCourier(_prev, formData) {
   return { ok: true, at: Date.now() };
 }
 
+// Key muche na fele courier bondho/chalu (disconnect/connect)
+export async function toggleCourierAction(id, on) {
+  await requireAdmin();
+  if (!COURIERS[id]) return;
+  const s = await getSettings();
+  const off = new Set(String(s.couriers_off || "").split(",").filter(Boolean));
+  if (on) off.delete(id);
+  else off.add(id);
+  await saveSettings({ couriers_off: [...off].join(",") });
+  refreshAdmin();
+}
+
 export async function savePathaoAction(_prev, formData) {
   await requireAdmin();
   const get = (k) => String(formData.get(k) || "").trim();
@@ -437,7 +556,7 @@ export async function saveCourierAction(_prev, formData) {
   refreshAdmin();
   try {
     const balance = await getBalance(await getSettings());
-    await saveSettings({ steadfast_key_status: "ok", steadfast_last_error: "" });
+    await saveSettings({ steadfast_key_status: "ok", steadfast_last_error: "", steadfast_pause_until: "" });
     return { ok: true, at: Date.now(), balance };
   } catch (err) {
     return { error: `সেভ হয়েছে, কিন্তু Steadfast কানেক্ট হয়নি: ${err.message}` };

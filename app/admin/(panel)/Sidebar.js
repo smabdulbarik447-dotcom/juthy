@@ -6,11 +6,11 @@ import { useState } from "react";
 import Icon from "./Icon";
 
 const MENU = [
-  { href: "/admin", icon: "grid", label: "ড্যাশবোর্ড" },
-  { href: "/admin/orders", icon: "orders", label: "অর্ডার", badge: "pending" },
-  { href: "/admin/orders/new", icon: "phone", label: "নতুন অর্ডার (কল)" },
-  { href: "/admin/incomplete", icon: "clock", label: "অসম্পূর্ণ অর্ডার", badge: "incomplete" },
-  { href: "/admin/products", icon: "box", label: "পণ্য" },
+  { href: "/admin", icon: "grid", label: "ড্যাশবোর্ড", warm: true },
+  { href: "/admin/orders", icon: "orders", label: "অর্ডার", badge: "pending", warm: true },
+  { href: "/admin/orders/new", icon: "phone", label: "নতুন অর্ডার (কল)", warm: true },
+  { href: "/admin/incomplete", icon: "clock", label: "অসম্পূর্ণ অর্ডার", badge: "incomplete", warm: true },
+  { href: "/admin/products", icon: "box", label: "পণ্য", warm: true },
   { href: "/admin/products/new", icon: "plus", label: "নতুন পণ্য" },
   { href: "/admin/content", icon: "orders", label: "ল্যান্ডিং পেজ টেক্সট" },
   { href: "/admin/banners", icon: "image", label: "ব্যানার" },
@@ -18,6 +18,7 @@ const MENU = [
   { href: "/admin/fraud", icon: "shield", label: "ফেক অর্ডার প্রোটেকশন" },
   { href: "/admin/telegram", icon: "send", label: "Telegram" },
   { href: "/admin/whatsapp", icon: "phone", label: "WhatsApp মেসেজ" },
+  { href: "/admin/ads", icon: "megaphone", label: "Facebook অ্যাড" },
   { href: "/admin/tracking", icon: "chart", label: "Pixel / ট্র্যাকিং" },
   { href: "/admin/settings", icon: "sliders", label: "সাইট সেটিংস" },
 ];
@@ -35,7 +36,7 @@ export default function Sidebar({ badges = {} }) {
       <button className="adm-burger" onClick={() => setOpen(!open)} aria-label="মেনু">☰ মেনু</button>
       <nav className={`adm-nav ${open ? "open" : ""}`}>
         {MENU.map((m) => (
-          <Link key={m.href} href={m.href} className={isActive(m.href) ? "active" : ""} onClick={() => setOpen(false)}>
+          <Link key={m.href} href={m.href} prefetch={m.warm ? true : null} className={isActive(m.href) ? "active" : ""} onClick={() => setOpen(false)}>
             <Icon name={m.icon} />
             <span className="nav-label">{m.label}</span>
             {m.badge && badges[m.badge] > 0 && <em className="nav-badge">{badges[m.badge]}</em>}

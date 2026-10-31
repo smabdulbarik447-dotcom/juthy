@@ -9,6 +9,11 @@ import CountUp from "./CountUp";
 import LiveClock from "./LiveClock";
 import OrderCalendar from "./OrderCalendar";
 import { LIMITS } from "@/lib/dateRange";
+import { districtOf } from "@/lib/districts";
+import { QuickBar, ReorderList } from "./QuickTools";
+import Celebrate from "./Celebrate";
+import { orderSource } from "@/lib/orderSource";
+import { courierName, courierIcon } from "@/lib/courier";
 
 const STATUS_COLOR = {
   pending: "#3b82f6", confirmed: "#16a34a", shipped: "#a855f7",
@@ -26,10 +31,16 @@ export default async function Dashboard({ searchParams }) {
   const show = LIMITS.includes(Number(sp.show)) ? Number(sp.show) : 20;
   await ensureTables();
   const [orders, products, settings, incomplete] = await Promise.all([
-    sql`SELECT id, created_at, name, phone, product, area, qty, total, status FROM orders ORDER BY created_at DESC`,
+    sql`SELECT id, created_at, name, phone, address, product, area, qty, total, status, delivery_fee, courier_id, courier, page_url, fbc, user_agent FROM orders ORDER BY created_at DESC`,
     getProducts({ all: true }),
     getSettings(),
     sql`SELECT phone, name, product, updated_at FROM incomplete_orders ORDER BY updated_at DESC LIMIT 5`,
+  ]);
+  const [incAll, [shield]] = await Promise.all([
+    sql`SELECT updated_at FROM incomplete_orders`,
+    sql`SELECT
+      (SELECT count(*)::int FROM phone_history WHERE alerted_at > now() - interval '30 days') AS blocked,
+      (SELECT count(*)::int FROM orders WHERE note LIKE 'কম রেটিং%' AND created_at > now() - interval '30 days') AS auto_cancel`,
   ]);
 
   const inR = orders.filter((o) => inRange(o.created_at, range));
@@ -176,7 +187,183 @@ export default async function Dashboard({ searchParams }) {
   const todayTop = Object.entries(todayList.reduce((m, o) => ({ ...m, [o.product]: (m[o.product] || 0) + o.qty }), {})).sort((a, b) => b[1] - a[1])[0];
   const diff = todayList.length - ydayList.length;
 
+  // জেলা লিডারবোর্ড: kon jela theke beshi order ar kothay return beshi (beche neya shomoy)
+  const distMap = {};
+  for (const o of inR) {
+    const d = districtOf(o.address, o.area) || "অজানা";
+    const r = (distMap[d] ||= { n: 0, ok: 0, bad: 0, s: 0 });
+    r.n += 1;
+    if (o.status === "delivered") r.ok += 1;
+    if (o.status === "returned") r.bad += 1;
+    if (isSale(o)) r.s += o.total;
+  }
+  const districts = Object.entries(distMap).sort((a, b) => b[1].n - a[1].n).slice(0, 8);
+  const maxDist = Math.max(1, ...districts.map(([, r]) => r.n));
+
+  // Kokhon order beshi ashe: shopter din × 4 ghontar khondo (shob order) — ad chalanor shera shomoy
+  const WEEK = ["শনি", "রবি", "সোম", "মঙ্গল", "বুধ", "বৃহঃ", "শুক্র"];
+  const WEEK_FULL = ["শনিবার", "রবিবার", "সোমবার", "মঙ্গলবার", "বুধবার", "বৃহস্পতিবার", "শুক্রবার"];
+  const SLOTS = ["রাত ১২–৪", "ভোর ৪–৮", "সকাল ৮–১২", "দুপুর ১২–৪", "বিকেল ৪–৮", "রাত ৮–১২"];
+  const grid = WEEK.map(() => SLOTS.map(() => 0));
+  for (const o of orders) {
+    const t = new Date(new Date(o.created_at).getTime() + 6 * 36e5); // Dhaka = UTC+6
+    grid[(t.getUTCDay() + 1) % 7][Math.floor(t.getUTCHours() / 4)] += 1;
+  }
+  const maxCell = Math.max(1, ...grid.flat());
+  let bestCell = null;
+  grid.forEach((row, d) => row.forEach((n, s) => { if (n && (!bestCell || n > bestCell.n)) bestCell = { d, s, n }; }));
+  const dayTotals = grid.map((row) => row.reduce((a, b) => a + b, 0));
+  const bestDay = dayTotals.indexOf(Math.max(...dayTotals));
+
+  // Loyal customer: ek number theke ekadhik order, ar delivered taka onujayi shera 5 jon
+  const byPhone = {};
+  for (const o of orders) {
+    const c = (byPhone[o.phone] ||= { name: o.name, n: 0, ok: 0, spent: 0 });
+    c.n += 1;
+    if (o.status === "delivered") { c.ok += 1; c.spent += o.total; }
+  }
+  const allCust = Object.values(byPhone);
+  const repeat = allCust.filter((c) => c.n > 1).length;
+  const repeatRate = allCust.length ? Math.round((repeat / allCust.length) * 100) : 0;
+  const loyal = Object.entries(byPhone).filter(([, c]) => c.ok > 0).sort((a, b) => b[1].spent - a[1].spent || b[1].n - a[1].n).slice(0, 5);
+  const avgOrder = sales.length ? Math.round(sum(sales) / sales.length) : 0;
+
+  // Sales funnel (beche neya shomoy): form shuru → order → confirm → courier → delivered
+  const shippedUp = inR.filter((o) => ["shipped", "delivered", "returned"].includes(o.status)).length;
+  const funnel = [
+    { label: "ফর্ম পূরণ শুরু", n: inR.length + incAll.filter((r) => inRange(r.updated_at, range)).length, c: "#6366f1" },
+    { label: "অর্ডার করেছে", n: inR.length, c: "#8b5cf6" },
+    { label: "কনফার্ম হয়েছে", n: inR.filter((o) => ["confirmed", "shipped", "delivered", "returned"].includes(o.status)).length, c: "#ec4899" },
+    { label: "কুরিয়ারে গেছে", n: shippedUp, c: "#f97316" },
+    { label: "ডেলিভারড", n: ofStatus(inR, "delivered").length, c: "#16a34a" },
+  ];
+  const funnelTop = Math.max(1, funnel[0].n);
+
+  // Taka kothay ache (shob shomoy): hate pawa, courier e pothe, pathano baki, call baki
+  const flow = [
+    { label: "ডেলিভারড (হাতে আসবে/এসেছে)", v: sum(ofStatus(orders, "delivered")), c: "#16a34a" },
+    { label: "কুরিয়ারে পথে", v: sum(ofStatus(orders, "shipped")), c: "#a855f7" },
+    { label: "কনফার্মড, পাঠানো বাকি", v: sum(ofStatus(orders, "confirmed")), c: "#0ea5e9" },
+    { label: "কলের অপেক্ষায়", v: sum(ofStatus(orders, "pending")), c: "#f59e0b" },
+  ];
+  const flowTotal = Math.max(1, flow.reduce((t, f) => t + f.v, 0));
+  const returnLoss = ofStatus(orders, "returned").reduce((t, o) => t + orderDelivery(settings, products, o), 0);
+
+  // Record: shobcheye beshi order er din, ar tana koy din dhore order ashche (streak)
+  let record = null;
+  for (const [k, d] of Object.entries(calDays)) if (!record || d.n > record.n) record = { day: k, ...d };
+  let streak = 0;
+  for (let t = calDays[today] ? Date.now() : Date.now() - DAY; calDays[dhakaDay(t)]; t -= DAY) streak++;
+  const toRecord = record ? Math.max(0, record.n - todayList.length + 1) : 0;
+
   const qs = rangeId === "custom" ? `range=custom&from=${sp.from}&to=${sp.to}` : `range=${rangeId}`;
+
+  // অর্ডার কোথা থেকে আসছে (beche neya shomoy): link er utm/fbclid, call e newa order alada
+  const sourceOf = (o) => orderSource(o).id;
+  const SOURCES = {
+    fb: { label: "Facebook অ্যাড/পেজ", icon: "📘", c: "#1877f2" },
+    ig: { label: "Instagram", icon: "📸", c: "#e1306c" },
+    tiktok: { label: "TikTok", icon: "🎵", c: "#111827" },
+    google: { label: "Google", icon: "🔎", c: "#16a34a" },
+    msg: { label: "Messenger", icon: "💬", c: "#0ea5e9" },
+    an: { label: "অন্য অ্যাপ", icon: "📱", c: "#64748b" },
+    direct: { label: "সরাসরি / অন্যান্য", icon: "🌐", c: "#8b5cf6" },
+    call: { label: "কল / হাতে বসানো", icon: "📞", c: "#f59e0b" },
+  };
+  const srcMap = {};
+  for (const o of inR) {
+    const r = (srcMap[sourceOf(o)] ||= { n: 0, sale: 0, cancel: 0, ok: 0, bad: 0 });
+    r.n += 1;
+    if (isSale(o)) r.sale += 1;
+    if (o.status === "cancelled") r.cancel += 1;
+    if (o.status === "delivered") r.ok += 1;
+    if (o.status === "returned") r.bad += 1;
+  }
+  const sources = Object.entries(srcMap).sort((a, b) => b[1].n - a[1].n);
+  const maxSrc = Math.max(1, ...sources.map(([, r]) => r.n));
+
+  // কুরিয়ার তুলনা (beche neya shomoy): kon courier e pathano parcel beshi ডেলিভারড hoy
+  const curMap = {};
+  for (const o of inR) {
+    if (!o.courier_id) continue;
+    const r = (curMap[courierName(o)] ||= { icon: courierIcon(o), n: 0, ok: 0, bad: 0, way: 0 });
+    r.n += 1;
+    if (o.status === "delivered") r.ok += 1;
+    else if (o.status === "returned") r.bad += 1;
+    else if (o.status === "shipped") r.way += 1;
+  }
+  const couriersCmp = Object.entries(curMap)
+    .map(([name, r]) => ({ name, ...r, rate: r.ok + r.bad ? Math.round((r.ok / (r.ok + r.bad)) * 100) : null }))
+    .sort((a, b) => b.n - a.n);
+  const bestCourier = couriersCmp.filter((c) => c.rate !== null && c.ok + c.bad >= 5).sort((a, b) => b.rate - a.rate)[0];
+
+  // আবার কেনার সময়: shesh ডেলিভারড order 20–60 din age, tarpor ar order nei — WhatsApp e mone koriye dewa
+  const lastBy = {};
+  for (const o of orders) if (!lastBy[o.phone]) lastBy[o.phone] = o; // orders notun theke purono
+  const reorder = Object.values(lastBy)
+    .filter((o) => o.status === "delivered")
+    .map((o) => ({ o, days: Math.floor((Date.now() - new Date(o.created_at).getTime()) / DAY) }))
+    .filter((x) => x.days >= 20 && x.days <= 60)
+    .sort((a, b) => a.days - b.days)
+    .map(({ o, days }) => ({
+      phone: o.phone,
+      name: o.name,
+      product: o.product,
+      days,
+      wa: `https://wa.me/88${o.phone}?text=${encodeURIComponent(`হাই ${o.name}! ${settings.brand} থেকে বলছি 😊 আপনার ${o.product} কেমন লাগলো? পারফিউম শেষ হয়ে এলে এই মেসেজের রিপ্লাই দিন — আবার দ্রুত পৌঁছে দেবো ❤️`)}`,
+    }));
+
+  // লেভেল ও অর্জন (game er moto): ডেলিভারড order = XP, ar milestone purno hole badge khole
+  const deliveredAll = ofStatus(orders, "delivered");
+  const returnedAll = ofStatus(orders, "returned").length;
+  const xp = deliveredAll.length;
+  const LEVELS = [
+    [0, "নতুন সেলার", "🌱"], [10, "উঠতি সেলার", "🌿"], [25, "ব্রোঞ্জ সেলার", "🥉"], [50, "সিলভার সেলার", "🥈"],
+    [100, "গোল্ড সেলার", "🥇"], [250, "প্লাটিনাম সেলার", "💠"], [500, "ডায়মন্ড সেলার", "💎"], [1000, "মাস্টার সেলার", "👑"],
+    [2500, "লিজেন্ড সেলার", "🐐"], [5000, "পারফিউম কিং", "🦁"],
+  ];
+  const lvlIdx = LEVELS.findLastIndex(([min]) => xp >= min);
+  const [lvlMin, lvlName, lvlIcon] = LEVELS[lvlIdx];
+  const nextLvl = LEVELS[lvlIdx + 1];
+  const lvlPct = nextLvl ? Math.round(((xp - lvlMin) / (nextLvl[0] - lvlMin)) * 100) : 100;
+  // Shobcheye lomba tana order er din
+  let bestStreak = 0;
+  let run = 0;
+  let prevDay = null;
+  for (const d of Object.keys(calDays).sort()) {
+    run = prevDay && Date.parse(d) - Date.parse(prevDay) === DAY ? run + 1 : 1;
+    bestStreak = Math.max(bestStreak, run);
+    prevDay = d;
+  }
+  const soldAll = sum(deliveredAll);
+  const deliveredDistricts = new Set(deliveredAll.map((o) => districtOf(o.address, o.area)).filter(Boolean)).size;
+  const rateAll = xp + returnedAll ? Math.round((xp / (xp + returnedAll)) * 100) : 0;
+  const BADGES = [
+    { icon: "🎉", name: "প্রথম অর্ডার", have: orders.length, need: 1 },
+    { icon: "📦", name: "প্রথম ডেলিভারি", have: xp, need: 1 },
+    { icon: "💯", name: "১০০ অর্ডার", have: orders.length, need: 100 },
+    { icon: "🏅", name: "১০০ ডেলিভারি", have: xp, need: 100 },
+    { icon: "🚀", name: "৫০০ অর্ডার", have: orders.length, need: 500 },
+    { icon: "💰", name: "১ লাখ টাকা বিক্রি", have: soldAll, need: 100000, money: true },
+    { icon: "💎", name: "১০ লাখ টাকা বিক্রি", have: soldAll, need: 1000000, money: true },
+    { icon: "🔥", name: "৭ দিন টানা অর্ডার", have: bestStreak, need: 7 },
+    { icon: "⚡", name: "একদিনে ২০ অর্ডার", have: record?.n || 0, need: 20 },
+    { icon: "🗺️", name: "২০ জেলায় ডেলিভারি", have: deliveredDistricts, need: 20 },
+    { icon: "🔁", name: "১০ জন ফেরত কাস্টমার", have: repeat, need: 10 },
+    { icon: "🎯", name: "৯০% সাকসেস (৫০+ পার্সেল)", have: xp + returnedAll >= 50 ? rateAll : 0, need: 90, pct: true },
+  ].map((b) => ({ ...b, done: b.have >= b.need, pctDone: Math.min(100, Math.round((b.have / b.need) * 100)) }));
+  const badgesDone = BADGES.filter((b) => b.done).length;
+  // Protidin notun ekta utsaho er kotha
+  const QUOTES = [
+    "প্রতিটা অর্ডার একটা নতুন বিশ্বাস — যত্ন করে পাঠান 💜",
+    "আজকের ছোট কাজই কালকের বড় ব্র্যান্ড 🚀",
+    "কাস্টমার খুশি = আবার অর্ডার = আরও বিক্রি 🔁",
+    "রিটার্ন কমান, লাভ বাড়ান — কল করে কনফার্ম করুন 📞",
+    "সুগন্ধ মানুষ মনে রাখে, ভালো সার্ভিসও 🌸",
+    "ধৈর্য আর লেগে থাকা — এটাই আসল সিক্রেট 🔑",
+    "প্রতিদিন একটু একটু করে এগোলেই রেকর্ড ভাঙে 🏆",
+  ];
+  const quote = QUOTES[Math.floor(Date.parse(today) / DAY) % QUOTES.length];
 
   return (
     <>
@@ -237,17 +424,27 @@ export default async function Dashboard({ searchParams }) {
         </div>
       </section>
 
+      <QuickBar />
+
+      {record && record.day === today && todayList.length > 0 ? (
+        <Celebrate id={`record-${today}`} text={`🏆 অভিনন্দন! আজ ${todayList.length}টি অর্ডার — এটাই আপনার সবচেয়ে সেরা দিন!`} />
+      ) : goalPct >= 100 && lastMonthSales > 0 ? (
+        <Celebrate id={`goal-${monthKey}`} text={`🎯 দারুণ! এই মাসের বিক্রি গত মাসকে ছাড়িয়ে গেছে (${goalPct}%)`} />
+      ) : null}
+
       {orders.length > 0 && (
         <div className="ticker" aria-label="সাম্প্রতিক অর্ডার">
-          <span className="ticker-tag">🔔 লাইভ</span>
+          <span className="ticker-live"><i /> LIVE</span>
           <div className="ticker-track">
-            <div className="ticker-move">
-              {[0, 1].map((k) => orders.slice(0, 10).map((o) => (
-                <span key={`${k}-${o.id}`} aria-hidden={k === 1}>
-                  🛍️ <b>{o.name}</b> নিয়েছেন {o.product} ×{o.qty} — {money(o.total)} <i>• {agoOf(o.created_at)}</i>
-                </span>
-              )))}
-            </div>
+            {[0, 1].map((copy) => (
+              <div key={copy} className="ticker-row" aria-hidden={copy === 1}>
+                {orders.slice(0, 12).map((o) => (
+                  <span key={o.id} className="ticker-item">
+                    🛍️ <b>{o.name}</b>{districtOf(o.address, o.area) ? ` (${districtOf(o.address, o.area)})` : ""} — {o.product}{o.qty > 1 ? ` × ${o.qty}` : ""} • <b className="tk">{money(o.total)}</b> • <em>{agoOf(o.created_at)}</em>
+                  </span>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -382,6 +579,293 @@ export default async function Dashboard({ searchParams }) {
               <li><small>বাকি দিন</small><b>{daysInMonth - dayOfMonth} দিন</b></li>
             </ul>
           </div>
+        </div>
+      </section>
+
+      <section className="dash-grid trio">
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>জেলা লিডারবোর্ড 🗺️</h3>
+              <small>{range.label} • কোন জেলা থেকে বেশি অর্ডার, কোথায় রিটার্ন বেশি</small>
+            </div>
+          </div>
+          {districts.length === 0 ? (
+            <p className="adm-muted empty-note">এই সময়ে অর্ডার নেই</p>
+          ) : (
+            <ul className="dist-list">
+              {districts.map(([d, r], i) => {
+                const done = r.ok + r.bad;
+                const ok = done ? Math.round((r.ok / done) * 100) : null;
+                return (
+                  <li key={d}>
+                    <span className="dist-rank">{i + 1}</span>
+                    <div className="dist-main">
+                      <div className="dist-top"><b>{d}</b><small>{r.n}টি অর্ডার • {money(r.s)}</small></div>
+                      <span className="dist-bar"><i style={{ width: `${(r.n / maxDist) * 100}%` }} /></span>
+                    </div>
+                    <span className={`dist-ok ${ok === null ? "" : ok >= 80 ? "good" : ok >= 60 ? "mid" : "bad"}`} title="ডেলিভারি সফল">
+                      {ok === null ? "—" : `${ok}%`}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>কখন অর্ডার বেশি আসে ⏰</h3>
+              <small>সব অর্ডার • অ্যাড চালানোর সেরা সময় বুঝতে</small>
+            </div>
+          </div>
+          <div className="when-grid">
+            <span />
+            {SLOTS.map((s) => <small key={s} className="when-slot">{s}</small>)}
+            {WEEK.map((w, d) => [
+              <small key={w} className={`when-day ${d === bestDay && dayTotals[d] ? "best" : ""}`}>{w}</small>,
+              ...grid[d].map((n, s) => (
+                <span
+                  key={`${d}-${s}`}
+                  className={`when-cell ${bestCell && bestCell.d === d && bestCell.s === s ? "best" : ""}`}
+                  style={{ "--a": n ? 0.15 + (n / maxCell) * 0.85 : 0 }}
+                  title={`${w} ${SLOTS[s]} — ${n}টি অর্ডার`}
+                >
+                  {n || ""}
+                </span>
+              )),
+            ])}
+          </div>
+          <p className="when-tip">
+            {bestCell
+              ? <>🔥 সবচেয়ে বেশি অর্ডার: <b>{WEEK_FULL[bestCell.d]} {SLOTS[bestCell.s]}টা</b> • সেরা দিন <b>{WEEK_FULL[bestDay]}</b></>
+              : "এখনো যথেষ্ট অর্ডার নেই"}
+          </p>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>লয়্যাল কাস্টমার 💎</h3>
+              <small>যারা নিয়েছেন আর আবার ফিরে এসেছেন</small>
+            </div>
+          </div>
+          <div className="loyal-stats">
+            <div><b>{repeatRate}%</b><small>রিপিট কাস্টমার ({repeat} জন)</small></div>
+            <div><b>{money(avgOrder)}</b><small>গড় অর্ডার ({range.label})</small></div>
+          </div>
+          {loyal.length === 0 ? (
+            <p className="adm-muted empty-note">এখনো ডেলিভারড কাস্টমার নেই</p>
+          ) : (
+            <ul className="loyal-list">
+              {loyal.map(([phone, c], i) => (
+                <li key={phone}>
+                  <span className="loyal-medal">{["🥇", "🥈", "🥉", "4", "5"][i]}</span>
+                  <Link href={`/admin/customer/${phone}`}>
+                    <b>{c.name}</b>
+                    <small>{phone} • {c.n}টি অর্ডার{c.n > 1 ? " 🔁" : ""}</small>
+                  </Link>
+                  <span className="loyal-amt">{money(c.spent)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <section className="dash-grid trio">
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>সেলস ফানেল 🔻</h3>
+              <small>{range.label} • কোন ধাপে কাস্টমার হারাচ্ছেন</small>
+            </div>
+          </div>
+          <ul className="funnel">
+            {funnel.map((f, i) => {
+              const drop = i && funnel[i - 1].n ? Math.round(((funnel[i - 1].n - f.n) / funnel[i - 1].n) * 100) : null;
+              return (
+                <li key={f.label}>
+                  <span className="funnel-bar" style={{ width: `${Math.max(14, (f.n / funnelTop) * 100)}%`, background: f.c }}>
+                    <b>{f.n}</b>
+                  </span>
+                  <small>{f.label}{drop > 0 && <em> −{drop}%</em>}</small>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>টাকা কোথায় আছে 💰</h3>
+              <small>সব সময় • মোট {money(flowTotal)}</small>
+            </div>
+          </div>
+          <div className="flow-bar">
+            {flow.map((f) => f.v > 0 && (
+              <span key={f.label} style={{ width: `${(f.v / flowTotal) * 100}%`, background: f.c }} title={`${f.label}: ${money(f.v)}`} />
+            ))}
+          </div>
+          <ul className="flow-list">
+            {flow.map((f) => (
+              <li key={f.label}>
+                <i style={{ background: f.c }} />
+                <small>{f.label}</small>
+                <b>{money(f.v)}</b>
+              </li>
+            ))}
+            <li className="loss">
+              <i />
+              <small>রিটার্নে ডেলিভারি খরচ (আনুমানিক)</small>
+              <b>−{money(returnLoss)}</b>
+            </li>
+          </ul>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>রেকর্ড ও সুরক্ষা 🏆</h3>
+              <small>আপনার সেরা দিন আর ফ্রড থেকে বাঁচা</small>
+            </div>
+          </div>
+          <div className="rec-grid">
+            <div className="rec gold">
+              <small>🏆 সেরা দিন</small>
+              <b>{record ? `${record.n}টি অর্ডার` : "—"}</b>
+              <em>{record ? new Date(record.day).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : ""}</em>
+            </div>
+            <div className="rec fire">
+              <small>🔥 টানা অর্ডার</small>
+              <b>{streak} দিন</b>
+              <em>{streak ? "প্রতিদিন অর্ডার আসছে" : "আজ প্রথম অর্ডারের অপেক্ষা"}</em>
+            </div>
+            <div className="rec shield">
+              <small>🛡️ কম রেটিং আটকানো</small>
+              <b>{shield.blocked} নাম্বার</b>
+              <em>শেষ ৩০ দিনে{shield.auto_cancel ? ` • ${shield.auto_cancel}টি অটো বাতিল` : ""}</em>
+            </div>
+          </div>
+          {record && (
+            <div className="rec-race">
+              <div><small>আজ {todayList.length}টি</small><small>রেকর্ড {record.n}টি</small></div>
+              <span><i style={{ width: `${Math.min(100, (todayList.length / record.n) * 100)}%` }} /></span>
+              <p>{record.day === today ? "🎉 আজই আপনার সেরা দিন!" : `রেকর্ড ভাঙতে আর ${toRecord}টি অর্ডার লাগবে`}</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="dash-grid one-col">
+        <div className="panel game">
+          <div className="panel-head">
+            <div>
+              <h3>লেভেল ও অর্জন 🎮</h3>
+              <small>{quote}</small>
+            </div>
+            <span className="game-count">🏅 {badgesDone}/{BADGES.length} অর্জন</span>
+          </div>
+          <div className="game-body">
+            <div className="lvl-card">
+              <span className="lvl-icon">{lvlIcon}</span>
+              <small>লেভেল {lvlIdx + 1}</small>
+              <b>{lvlName}</b>
+              <span className="lvl-bar"><i style={{ width: `${lvlPct}%` }} /></span>
+              <em>{nextLvl ? `${xp}/${nextLvl[0]} ডেলিভারি • ${nextLvl[2]} ${nextLvl[1]} হতে আর ${nextLvl[0] - xp}টি` : `${xp} ডেলিভারি — সর্বোচ্চ লেভেল! 🎉`}</em>
+            </div>
+            <div className="badges">
+              {BADGES.map((b) => (
+                <div key={b.name} className={`badge-item ${b.done ? "done" : ""}`} title={b.done ? "অর্জিত! 🎉" : `${b.pctDone}% হয়েছে`}>
+                  <span className="badge-ico">{b.done ? b.icon : "🔒"}</span>
+                  <b>{b.name}</b>
+                  {b.done ? (
+                    <small className="badge-ok">✓ অর্জিত</small>
+                  ) : (
+                    <>
+                      <span className="badge-bar"><i style={{ width: `${b.pctDone}%` }} /></span>
+                      <small>{b.money ? `${money(b.have)} / ${money(b.need)}` : b.pct ? `${b.have}% / ${b.need}%` : `${b.have} / ${b.need}`}</small>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="dash-grid trio">
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>অর্ডার কোথা থেকে আসছে 🧭</h3>
+              <small>{range.label} • কোন সোর্সের কাস্টমার বেশি কনফার্ম করে</small>
+            </div>
+          </div>
+          {sources.length === 0 ? (
+            <p className="adm-muted">এই সময়ে কোনো অর্ডার নেই</p>
+          ) : (
+            <ul className="src-list">
+              {sources.map(([id, r]) => {
+                const meta = SOURCES[id];
+                const conf = r.sale + r.cancel ? Math.round((r.sale / (r.sale + r.cancel)) * 100) : null;
+                return (
+                  <li key={id}>
+                    <div className="src-top">
+                      <b>{meta.icon} {meta.label}</b>
+                      <small>{r.n}টি • {Math.round((r.n / inR.length) * 100)}%</small>
+                    </div>
+                    <span className="src-bar"><i style={{ width: `${(r.n / maxSrc) * 100}%`, background: meta.c }} /></span>
+                    <small className="src-sub">
+                      কনফার্ম {conf === null ? "—" : `${conf}%`} • ডেলিভারড {r.ok}{r.bad ? ` • রিটার্ন ${r.bad}` : ""}
+                    </small>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>কুরিয়ার তুলনা 🚚</h3>
+              <small>{range.label} • কোন কুরিয়ারে পার্সেল বেশি পৌঁছায়</small>
+            </div>
+          </div>
+          {couriersCmp.length === 0 ? (
+            <p className="adm-muted">এই সময়ে কুরিয়ারে কোনো পার্সেল যায়নি</p>
+          ) : (
+            <>
+              <ul className="cmp-list">
+                {couriersCmp.map((c) => (
+                  <li key={c.name} className={c.rate === null ? "" : c.rate >= 80 ? "good" : c.rate >= 60 ? "mid" : "bad"}>
+                    <span className="cmp-ring" style={{ "--p": c.rate ?? 0 }}><b>{c.rate === null ? "—" : `${c.rate}%`}</b></span>
+                    <div>
+                      <b>{c.icon} {c.name}</b>
+                      <small>{c.n} পার্সেল • ✅ {c.ok} • ↩️ {c.bad}{c.way ? ` • 🚚 পথে ${c.way}` : ""}</small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {bestCourier && couriersCmp.length > 1 && (
+                <p className="cmp-tip">🏆 সেরা: <b>{bestCourier.name}</b> — {bestCourier.rate}% পার্সেল ডেলিভারড</p>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>আবার কেনার সময় 🔁</h3>
+              <small>২০–৬০ দিন আগে ডেলিভারড, আর অর্ডার করেনি • {reorder.length} জন</small>
+            </div>
+          </div>
+          <ReorderList list={reorder.slice(0, 30)} />
         </div>
       </section>
 

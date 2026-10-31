@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { updateStatus, updateNote, updateOrderInfo, deleteOrder, blockOrder, unblock, sendToCourier, checkPhoneAction } from "../../actions";
 
@@ -10,6 +11,7 @@ const COURIER_STATUS = {
   partial_delivered: "আংশিক ডেলিভারড", cancelled: "বাতিল/রিটার্ন", unknown: "অজানা",
   delivered_approval_pending: "ডেলিভারড (অনুমোদন বাকি)", cancelled_approval_pending: "বাতিল (অনুমোদন বাকি)",
   partial_delivered_approval_pending: "আংশিক ডেলিভারড (অনুমোদন বাকি)", unknown_approval_pending: "অজানা",
+  not_found: "⚠️ Steadfast এ পাওয়া যায়নি — নিজে চেক করুন",
 };
 
 // Courier e pathano thakle tracking, na thakle chalu courier gulor "পাঠান" button
@@ -23,7 +25,7 @@ function Courier({ o, run, couriers }) {
   }
   if (o.status === "cancelled" || o.status === "delivered" || o.status === "returned") return null;
   if (!couriers.length) {
-    return <a className="courier-chip muted" href="/admin/courier">🚚 কুরিয়ার সেট করুন</a>;
+    return <Link className="courier-chip muted" href="/admin/courier">🚚 কুরিয়ার সেট করুন</Link>;
   }
   return (
     <div className="courier-btns">
@@ -55,14 +57,15 @@ const autoMsg = (a) =>
 // Customer er nam/number/thikana — "✏️ এডিট" chaaple oikhanei bodlano jay
 function CustomerInfo({ o, run }) {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: o.name, phone: o.phone, address: o.address, area: o.area });
+  const initial = { name: o.name, phone: o.phone, address: o.address, area: o.area, total: String(o.total), free: o.delivery_fee === 0 };
+  const [form, setForm] = useState(initial);
   const [error, setError] = useState("");
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   if (!editing) {
     return (
       <div>
-        <b className="cust">{o.name}</b>
+        <Link href={`/admin/customer/${o.phone}`} className="cust" title="কাস্টমারের সব অর্ডার ও হিসাব">{o.name} ›</Link>
         <div className="contact">
           <a href={`tel:${o.phone}`}>📞 {o.phone}</a>
           <a href={`https://wa.me/88${o.phone}`} target="_blank" rel="noreferrer">💬 WhatsApp</a>
@@ -83,7 +86,7 @@ function CustomerInfo({ o, run }) {
     run(async () => {
       const r = await updateOrderInfo(o.id, form);
       if (r?.error) return setError(r.error);
-      if (r?.totalChanged) alert(`ডেলিভারি এলাকা বদলেছে — নতুন মোট ৳${r.total}`);
+      if (r?.totalChanged) alert(`নতুন মোট ৳${r.total}`);
       if (r?.warning) alert(r.warning);
       setError("");
       setEditing(false);
@@ -99,13 +102,24 @@ function CustomerInfo({ o, run }) {
           <option key={id} value={id}>{label}</option>
         ))}
       </select>
+      <div className="edit-money">
+        <label>
+          <small>মোট টাকা (৳)</small>
+          <input value={form.total} onChange={set("total")} inputMode="numeric" placeholder={String(o.total)} />
+        </label>
+        <label className={`free-del ${form.free ? "on" : ""}`}>
+          <input type="checkbox" checked={form.free} onChange={(e) => setForm((f) => ({ ...f, free: e.target.checked }))} />
+          🚚 ফ্রি ডেলিভারি
+        </label>
+      </div>
+      <small className="edit-hint">টাকা না বদলালে ফ্রি ডেলিভারি/এলাকা অনুযায়ী মোট টাকা নিজে থেকে হিসাব হবে।</small>
       {error && <small className="adm-err">{error}</small>}
       <div className="edit-btns">
         <button type="button" className="adm-btn sm" onClick={save}>✓ সেভ</button>
         <button
           type="button"
           className="adm-btn sm ghost"
-          onClick={() => { setForm({ name: o.name, phone: o.phone, address: o.address, area: o.area }); setError(""); setEditing(false); }}
+          onClick={() => { setForm(initial); setError(""); setEditing(false); }}
         >
           বাতিল
         </button>
@@ -196,10 +210,11 @@ function downloadCsv(rows) {
   a.click();
 }
 
-export default function OrdersTable({ orders, statuses, initialFilter, couriers = [], rangeLabel = "সব সময়" }) {
+export default function OrdersTable({ orders, statuses, initialFilter, couriers = [], rangeLabel = "সব সময়", initialQuery = "" }) {
   const router = useRouter();
   const [filter, setFilter] = useState(initialFilter);
-  const [q, setQ] = useState("");
+  // Dashboard er search box theke ?q= diye ashle shei lekha diye-i khoja shuru
+  const [q, setQ] = useState(initialQuery);
   const [pending, startTransition] = useTransition();
 
   const label = Object.fromEntries(statuses.map((s) => [s.id, s.label]));
@@ -254,6 +269,16 @@ export default function OrdersTable({ orders, statuses, initialFilter, couriers 
         </div>
         <div className="toolbar-right">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="নাম / ফোন / আইডি দিয়ে খুঁজুন" />
+          <button
+            className="adm-btn ghost"
+            title="এখন যে অর্ডারগুলো দেখাচ্ছে তার প্যাকিং স্লিপ (A4 এ ৪টি করে) — কনফার্মড ট্যাব বেছে নিলে সুবিধা"
+            onClick={() => {
+              if (list.length > 300 && !confirm(`${list.length}টি অর্ডার — প্রথম ৩০০টির স্লিপ প্রিন্ট হবে। চালিয়ে যাবেন?`)) return;
+              window.open(`/admin/print?ids=${list.slice(0, 300).map((o) => o.id).join(",")}`, "_blank");
+            }}
+          >
+            🖨 স্লিপ
+          </button>
           <button className="adm-btn ghost" onClick={() => downloadCsv(list)}>⬇ CSV</button>
           <button className="adm-btn ghost" onClick={() => router.refresh()}>⟳</button>
         </div>
@@ -268,6 +293,9 @@ export default function OrdersTable({ orders, statuses, initialFilter, couriers 
               <div className="order-head">
                 <span className="order-id">{o.code}</span>
                 <span className="order-date">{fmtDate(o.created_at)}</span>
+                <span className={`src-chip s-${o.source.id}`} title="অর্ডার কোথা থেকে এসেছে">
+                  {o.source.icon} {o.source.label}{o.source.place ? ` • ${o.source.place}` : ""}{o.source.ad ? " • 📢 অ্যাড" : ""}
+                </span>
                 {o.blocked && <span className="badge blocked">🚫 ব্লকড</span>}
                 <span className={`badge st-${o.status}`}>{label[o.status] || o.status}</span>
               </div>
@@ -279,6 +307,7 @@ export default function OrdersTable({ orders, statuses, initialFilter, couriers 
                 <div className="order-prod">
                   <span>{o.product || "—"}</span>
                   <small>Qty: {o.qty} • {AREA[o.area] || o.area}</small>
+                  {o.delivery_fee === 0 && <span className="free-chip">🚚 ফ্রি ডেলিভারি</span>}
                   <b>৳{o.total.toLocaleString("en-IN")}</b>
                   <Courier o={o} run={run} couriers={couriers} />
                 </div>

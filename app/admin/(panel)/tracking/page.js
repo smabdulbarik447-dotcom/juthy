@@ -14,7 +14,7 @@ export default async function TrackingPage() {
       <h1 className="adm-title">ট্র্যাকিং কোড (Pixel/GTM)</h1>
       <p className="adm-muted adm-intro">
         শুধু আইডি দিন, পুরো কোড লাগবে না। ভিজিটরের ব্রাউজার থেকে PageView, ViewContent আর InitiateCheckout যায়।
-        <b> Purchase অর্ডার আসার সাথে সাথে যায় না</b> — নিচের Conversions API সেট করলে আপনি অর্ডার কনফার্ম করলে তবেই যায়।
+        <b> Purchase অর্ডার আসার সাথে সাথেই যায়</b> — নিচের Conversions API (সার্ভার) থেকে, শুধু Facebook/Instagram অ্যাডের অর্ডারে।
       </p>
 
       <div className="adm-box adm-narrow">
@@ -40,7 +40,7 @@ export default async function TrackingPage() {
 
       <div className="adm-box adm-narrow">
         <h3>
-          🎯 Conversions API — কনফার্ম করলে Purchase{" "}
+          🎯 Conversions API — অর্ডার হলেই Purchase{" "}
           {withToken.length ? (
             <span className="pill st-delivered">✓ চালু ({withToken.length}/{ids.length} Pixel)</span>
           ) : (
@@ -48,8 +48,9 @@ export default async function TrackingPage() {
           )}
         </h3>
         <ul className="fraud-always capi-rules">
-          <li>🛒 নতুন অর্ডার → Facebook এ <b>কিছু যায় না</b> (হোল্ড)</li>
-          <li>✅ আপনি <b>কনফার্ম</b> করলে (বা শিপড/ডেলিভারড) → <b>Purchase</b> যায়, টাকার পরিমাণসহ — একটা অর্ডারে একবারই</li>
+          <li>🛒 ওয়েবসাইটে <b>অর্ডার হলেই</b> → সাথে সাথে <b>Purchase</b> যায়, টাকার পরিমাণসহ — একটা অর্ডারে একবারই (কম রেটিংয়ে নিজে থেকে বাতিল হলে যায় না)</li>
+          <li>✅ কল/হাতে বসানো অর্ডার → <b>কনফার্ম</b> করলে Purchase (Facebook অ্যাড থেকে এসে থাকলে)</li>
+          <li>📣 শুধু <b>Facebook/Instagram অ্যাড থেকে আসা</b> অর্ডারেই ইভেন্ট যায় — কল/WhatsApp/হাতে যোগ করা বা অন্য জায়গা থেকে আসা অর্ডারে কিছুই যায় না</li>
           <li>❌ <b>বাতিল</b> করলে → কিছুই যায় না</li>
           <li>↩️ <b>রিটার্ন</b> করলে (নিজে বা কুরিয়ার থেকে) → <b>OrderReturned</b> ইভেন্ট যায় — এটা দিয়ে ওই কাস্টমারদের Ads থেকে বাদ দেবেন</li>
         </ul>

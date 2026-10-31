@@ -10,7 +10,7 @@ export default async function ProductEdit({ params }) {
   const { id } = await params;
   const isNew = id === "new";
   const p = isNew
-    ? { id: "", name: "", price: "", old_price: "", stock: 100, image: "/images/combo.png", sort: 0, active: true, boxes: 1 }
+    ? { id: "", name: "", price: "", old_price: "", stock: 100, image: "/images/combo.png", sort: 0, active: true, boxes: 1, cost: 0 }
     : (await getProducts({ all: true })).find((x) => x.id === Number(id));
   if (!p) notFound();
 

@@ -14,5 +14,9 @@ export async function GET(req) {
     await syncOrder(c.id, { change: `${statusChangeText(c.status)} (কুরিয়ার)` });
     await afterStatusChange(c.id, c.status); // courier e রিটার্ন hole Facebook e o jay
   }
+  // Facebook ad: auto niyom ar ajker report (ekta fail korleo onnota chole)
+  const { runAdRules, sendAdReport } = await import("@/lib/fbads");
+  await runAdRules({ force: true }).catch((err) => console.error("Ad rules failed", err.message));
+  await sendAdReport().catch((err) => console.error("Ad report failed", err.message));
   return Response.json(res);
 }

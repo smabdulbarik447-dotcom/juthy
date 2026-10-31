@@ -1,5 +1,5 @@
-import { put } from "@vercel/blob";
 import { isAdmin } from "@/lib/auth";
+import { sql, ensureTables } from "@/lib/db";
 
 const MAX = 4 * 1024 * 1024;
 
@@ -20,12 +20,10 @@ export async function POST(req) {
 
   const ext = (file.type.split("/")[1] || "bin").replace("jpeg", "jpg").replace("mpeg", "mp3").replace("x-m4a", "m4a");
   try {
-    const blob = await put(`${folder}/${isVoice ? "voice" : "image"}.${ext}`, file, {
-      access: "public",
-      addRandomSuffix: true,
-      contentType: file.type,
-    });
-    return Response.json({ url: blob.url });
+    await ensureTables();
+    const data = Buffer.from(await file.arrayBuffer()).toString("base64");
+    const [row] = await sql`INSERT INTO media (type, data) VALUES (${file.type}, ${data}) RETURNING id`;
+    return Response.json({ url: `/api/media/${row.id}.${ext}` });
   } catch (err) {
     console.error("Upload failed", err);
     return Response.json({ error: "আপলোড হয়নি, আবার চেষ্টা করুন" }, { status: 500 });

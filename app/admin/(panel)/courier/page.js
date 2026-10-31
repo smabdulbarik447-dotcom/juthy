@@ -3,64 +3,68 @@ import { getSettings } from "@/lib/store";
 import { sfReady, sfKeyInvalid, getBalance } from "@/lib/steadfast";
 import { pathaoReady, pathaoCredsSet, pathaoKeyInvalid, getPathaoStores } from "@/lib/pathao";
 import { carrybeeReady, carrybeeCredsSet, carrybeeKeyInvalid, getCarrybeeStores } from "@/lib/carrybee";
-import { COURIERS, readyCouriers } from "@/lib/courier";
+import { COURIERS, readyCouriers, courierOff } from "@/lib/courier";
 import { webhookKey } from "@/lib/courierSync";
 import { saveCourierAction, savePathaoAction, saveCarrybeeAction, saveDefaultCourier } from "../../actions";
 import SaveForm from "../SaveForm";
-import { BulkSendButton, SyncButton } from "./CourierButtons";
+import { BulkSendButton, SyncButton, CourierToggle } from "./CourierButtons";
 
 export default async function CourierPage() {
   await ensureTables();
   const s = await getSettings();
   const ready = readyCouriers(s);
+  // Disconnect kora courier e API call kori na
+  const off = (id) => courierOff(id, s);
 
+  // Tin courier er API ek shathe (ekta-r por ekta na) — page druto khole
+  const attempt = (fn) => fn().then((v) => [v, ""], (err) => [null, err.message]);
   // Steadfast obostha
   let sfBalance = null;
   let sfError = "";
-  if (sfKeyInvalid(s)) {
+  if (off("steadfast")) {
+    // bondho
+  } else if (sfKeyInvalid(s)) {
     sfError = `Steadfast বলেছে: ${s.steadfast_last_error || "Unauthorized"} — API Key আর Secret Key দুটোই নতুন করে পেস্ট করে একবার সেভ করুন (বারবার ভুল চেষ্টা করলে Steadfast অ্যাকাউন্ট লক করতে পারে)`;
-  } else if (sfReady(s)) {
-    try {
-      sfBalance = await getBalance(s);
-    } catch (err) {
-      sfError = err.message;
-    }
   }
+  const sfJob = !sfError && !off("steadfast") && sfReady(s) ? attempt(() => getBalance(s)) : null;
 
   // Pathao obostha + store list
   let stores = [];
   let ptError = "";
-  if (pathaoKeyInvalid(s)) {
+  if (off("pathao")) {
+    // bondho
+  } else if (pathaoKeyInvalid(s)) {
     ptError = "লগইন তথ্য ভুল ছিল — সঠিক তথ্য দিয়ে আবার সেভ করুন";
-  } else if (pathaoCredsSet(s)) {
-    try {
-      stores = await getPathaoStores(s);
-    } catch (err) {
-      ptError = err.message;
-    }
   }
+  const ptJob = !ptError && !off("pathao") && pathaoCredsSet(s) ? attempt(() => getPathaoStores(s)) : null;
 
   // CarryBee obostha + store list
   let cbStores = [];
   let cbError = "";
-  if (carrybeeKeyInvalid(s)) {
+  if (off("carrybee")) {
+    // bondho
+  } else if (carrybeeKeyInvalid(s)) {
     cbError = "API তথ্য ভুল ছিল — সঠিক তথ্য দিয়ে আবার সেভ করুন";
-  } else if (carrybeeCredsSet(s)) {
-    try {
-      cbStores = await getCarrybeeStores(s);
-    } catch (err) {
-      cbError = err.message;
-    }
   }
+  const cbJob = !cbError && !off("carrybee") && carrybeeCredsSet(s) ? attempt(() => getCarrybeeStores(s)) : null;
+
+  const [sfRes, ptRes, cbRes, [counts]] = await Promise.all([
+    sfJob,
+    ptJob,
+    cbJob,
+    sql`
+    SELECT count(*) FILTER (WHERE status = 'confirmed' AND courier_id = '')::int AS waiting,
+           count(*) FILTER (WHERE status = 'shipped' AND courier_id <> '')::int AS on_way
+    FROM orders`,
+  ]);
+  if (sfRes) [sfBalance, sfError] = sfRes;
+  if (ptRes) [stores, ptError] = [ptRes[0] || [], ptRes[1]];
+  if (cbRes) [cbStores, cbError] = [cbRes[0] || [], cbRes[1]];
 
   const webhookUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL || "juthy.vercel.app"}/api/courier-webhook/${webhookKey()}`;
 
-  const [counts] = await sql`
-    SELECT count(*) FILTER (WHERE status = 'confirmed' AND courier_id = '')::int AS waiting,
-           count(*) FILTER (WHERE status = 'shipped' AND courier_id <> '')::int AS on_way
-    FROM orders`;
-
-  const badge = (ok, err) =>
+  const badge = (id, ok, err) =>
+    off(id) && ok ? <span className="pill st-pending">⏸ ডিসকানেক্টেড</span> :
     err ? <span className="pill st-cancelled">সমস্যা</span> : ok ? <span className="pill st-delivered">✓ চালু</span> : <span className="pill st-pending">সেট করা নেই</span>;
 
   return (
@@ -144,7 +148,9 @@ export default async function CourierPage() {
 
       <div className="adm-grid even">
         <div className="adm-box">
-          <h3>📮 Steadfast {badge(sfReady(s), sfError)}</h3>
+          <h3>📮 Steadfast {badge("steadfast", sfReady(s), sfError)}
+            {sfReady(s) && <CourierToggle id="steadfast" name="Steadfast" off={off("steadfast")} />}
+          </h3>
           {sfBalance !== null && <p className="adm-muted">ব্যালেন্স: <b>৳{Number(sfBalance).toLocaleString("en-IN")}</b></p>}
           {sfError && <p className="adm-err">{sfError}</p>}
           <p className="adm-muted adm-intro-sm">
@@ -169,7 +175,9 @@ export default async function CourierPage() {
         </div>
 
         <div className="adm-box">
-          <h3>🛵 Pathao {badge(pathaoReady(s), ptError)}</h3>
+          <h3>🛵 Pathao {badge("pathao", pathaoReady(s), ptError)}
+            {pathaoReady(s) && <CourierToggle id="pathao" name="Pathao" off={off("pathao")} />}
+          </h3>
           {pathaoReady(s) && !ptError && <p className="adm-muted">স্টোর: <b>{s.pathao_store_name || s.pathao_store_id}</b></p>}
           {ptError && <p className="adm-err">{ptError}</p>}
           <p className="adm-muted adm-intro-sm">
@@ -225,7 +233,9 @@ export default async function CourierPage() {
         </div>
       </div>
       <div className="adm-box adm-narrow-half">
-        <h3>🐝 CarryBee {badge(carrybeeReady(s), cbError)}</h3>
+        <h3>🐝 CarryBee {badge("carrybee", carrybeeReady(s), cbError)}
+          {carrybeeReady(s) && <CourierToggle id="carrybee" name="CarryBee" off={off("carrybee")} />}
+        </h3>
         {carrybeeReady(s) && !cbError && <p className="adm-muted">স্টোর: <b>{s.carrybee_store_name || s.carrybee_store_id}</b></p>}
         {cbError && <p className="adm-err">{cbError}</p>}
         <p className="adm-muted adm-intro-sm">

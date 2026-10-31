@@ -5,6 +5,7 @@ import { COURIERS, readyCouriers, trackingLink, courierName, courierIcon } from 
 import { waLink } from "@/lib/whatsapp";
 import { resolveRange, inRange } from "@/lib/dateRange";
 import { cachedHistory, checkPhoneSafe, bdcKey } from "@/lib/bdcourier";
+import { orderSource } from "@/lib/orderSource";
 
 // Ek bar page khulle shorboccho koyta number BD Courier e check hobe (page dhire na hoy)
 const MAX_AUTO_CHECK = 25;
@@ -51,7 +52,8 @@ export default async function OrdersPage({ searchParams }) {
       </div>
       <RangeFilter active={rangeId} from={sp.from} to={sp.to} basePath="/admin/orders" extra={status ? { status } : {}} />
       <OrdersTable
-        key={`${status || "all"}-${rangeId}-${sp.from || ""}-${sp.to || ""}`}
+        key={`${status || "all"}-${rangeId}-${sp.from || ""}-${sp.to || ""}-${sp.q || ""}`}
+        initialQuery={String(sp.q || "")}
         rangeLabel={range.label}
         statuses={STATUSES}
         initialFilter={STATUSES.some((s) => s.id === status) ? status : "all"}
@@ -64,6 +66,7 @@ export default async function OrdersPage({ searchParams }) {
           wa_link: waLink(settings, o),
           courier_name: courierName(o),
           courier_icon: courierIcon(o),
+          source: orderSource(o),
           created_at: new Date(o.created_at).toISOString(),
           history: history[o.phone],
           courierHist: courierHist[o.phone] || null,

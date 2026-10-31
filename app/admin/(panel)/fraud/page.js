@@ -55,6 +55,19 @@ export default async function FraudPage() {
               <small className="adm-muted">প্রতিটি অর্ডারে কাস্টমারের নাম্বারের সব কুরিয়ারের রিসিভ/রিটার্ন % দেখাবে (অর্ডার পেজ ও Telegram এ)।</small>
             </label>
             <label>
+              কম রেটিং এ অর্ডার আটকানো
+              <select name="bdc_guard" defaultValue={s.bdc_guard}>
+                <option value="on">চালু — রিসিভ রেট কম হলে অর্ডার না নিয়ে কল করতে বলবে</option>
+                <option value="off">বন্ধ — সবার অর্ডার নেবে</option>
+              </select>
+              <small className="adm-muted">নতুন কাস্টমার (আগে পার্সেল নেই) বা API কাজ না করলে অর্ডার হবে। আটকালে Telegram এ জানাবে।</small>
+            </label>
+            <label>
+              সর্বনিম্ন রিসিভ রেট (%)
+              <input name="bdc_guard_min" type="number" min="1" max="100" defaultValue={s.bdc_guard_min} />
+              <small className="adm-muted">এর কম হলে অর্ডার আটকাবে (ডিফল্ট ৬৫%)।</small>
+            </label>
+            <label>
               নাম ও ঠিকানা যাচাই
               <select name="fraud_min_text" defaultValue={s.fraud_min_text}>
                 <option value="on">চালু — নাম কমপক্ষে ৩, ঠিকানা ১০ অক্ষর</option>

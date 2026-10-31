@@ -22,6 +22,32 @@ export default function OrderForm({ products, delivery, freeBoxes = 0, text = {}
   const [area, setArea] = useState(delivery[0].id);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [blocked, setBlocked] = useState(null);
+  // Number boshalei courier rating check: "checking" | "ok" | ""
+  const [phoneCheck, setPhoneCheck] = useState("");
+  const lastPhone = useRef("");
+  // Ek number er rating check (Promise) — order chapleo eta shesh howa porjonto opekkha kori
+  const checks = useRef({});
+
+  function runCheck(phone) {
+    checks.current[phone] ||= fetch("/api/phone-check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone, name: formRef.current?.elements.name?.value, address: formRef.current?.elements.address?.value }) })
+      .then((r) => r.json())
+      .catch(() => ({}));
+    return checks.current[phone];
+  }
+
+  function checkPhoneNow(value) {
+    const phone = value.trim();
+    setBlocked(null);
+    lastPhone.current = phone;
+    if (!/^01[3-9]\d{8}$/.test(phone)) return setPhoneCheck("");
+    saveDraft();
+    setPhoneCheck("checking");
+    runCheck(phone).then((d) => {
+      if (lastPhone.current !== phone) return;
+      if (d.blocked) { setBlocked(d); setPhoneCheck(""); } else setPhoneCheck(d.ok ? "ok" : "");
+    });
+  }
   const formRef = useRef(null);
   const savedDraft = useRef("");
   const checkoutSent = useRef(false);
@@ -70,6 +96,14 @@ export default function OrderForm({ products, delivery, freeBoxes = 0, text = {}
     setError("");
     setStatus("loading");
     try {
+      // Rating check er jonno shorbochcho 1 second opekkha — er beshi na (bhalo customer ke boshiye rakhi na).
+      // Tokhono uttor na ele order hoy; server pore check kore kom rating hole order nije theke বাতিল kore
+      const check = await Promise.race([runCheck(phone), new Promise((r) => setTimeout(() => r({}), 1000))]);
+      if (check.blocked) {
+        setStatus("idle");
+        setBlocked(check);
+        return;
+      }
       const res = await fetch("/api/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,8 +119,13 @@ export default function OrderForm({ products, delivery, freeBoxes = 0, text = {}
         }),
       });
       const data = await res.json().catch(() => ({}));
+      if (data.blocked) {
+        setStatus("idle");
+        setBlocked(data);
+        return;
+      }
       if (!res.ok) throw new Error(data.error);
-      // Purchase ekhane pathai na — admin কনফার্ম korle server theke (Conversions API) jay
+      // Purchase browser theke na — order save holei server theke (Conversions API) jay, shudhu FB ad er order
       window.dataLayer?.push({ event: "order_placed", value: total, currency: "BDT" });
       setStatus("done");
     } catch (err) {
@@ -94,6 +133,22 @@ export default function OrderForm({ products, delivery, freeBoxes = 0, text = {}
       setError(err.message || "অর্ডার পাঠানো যায়নি, আবার চেষ্টা করুন বা কল করুন");
     }
   }
+
+  // Courier rating kom: order na niye popup e call/WhatsApp korte bole
+  const blockPopup = blocked && (
+    <div className="guard-wrap" role="dialog" aria-modal="true" onClick={() => setBlocked(null)}>
+      <div className="guard" onClick={(e) => e.stopPropagation()}>
+        <div className="guard-ico">📞</div>
+        <h3>দুঃখিত!</h3>
+        <p>এই নাম্বারে আপনি অনেকগুলো অর্ডার ক্যানসেল করেছেন, তাই অনলাইনে অর্ডার নেওয়া যাচ্ছে না। অর্ডার করতে অনুগ্রহ করে কল করুন।</p>
+        {blocked.phone && <a className="btn btn-block guard-pop-call" href={`tel:${blocked.phone}`}>📞 কল করুন {blocked.phone}</a>}
+        {blocked.whatsapp && (
+          <a className="guard-wa" href={`https://wa.me/${blocked.whatsapp}`} target="_blank" rel="noreferrer">💬 WhatsApp এ মেসেজ দিন</a>
+        )}
+        <button type="button" className="guard-close" onClick={() => setBlocked(null)}>বন্ধ করুন</button>
+      </div>
+    </div>
+  );
 
   if (!selected) return <p className="checkout">এই মুহূর্তে কোনো পণ্য পাওয়া যাচ্ছে না।</p>;
 
@@ -112,6 +167,7 @@ export default function OrderForm({ products, delivery, freeBoxes = 0, text = {}
     <form className="checkout" onSubmit={onSubmit} ref={formRef} onBlur={saveDraft} onFocus={onStartCheckout}>
       {/* Bot dhorar fad: manush eta dekhe na, bot puron kore */}
       <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hp-field" aria-hidden="true" />
+      {blockPopup}
       <h3 className="form-head">{T("form_head", "পছন্দের ফ্লেভার কম্বো সিলেক্ট করুন")}</h3>
       <div className="packages">
         {products.map((p) => (
@@ -144,7 +200,9 @@ export default function OrderForm({ products, delivery, freeBoxes = 0, text = {}
           </label>
           <label>
             {T("phone_label", "মোবাইল নাম্বার")} <i>*</i>
-            <input name="phone" required inputMode="numeric" maxLength={11} placeholder="01XXXXXXXXX" />
+            <input name="phone" required inputMode="numeric" maxLength={11} placeholder="01XXXXXXXXX" onChange={(e) => checkPhoneNow(e.target.value)} />
+            {phoneCheck === "checking" && <small className="phone-check">⏳ নাম্বার যাচাই হচ্ছে...</small>}
+            {phoneCheck === "ok" && <small className="phone-check ok">✅ নাম্বার যাচাই হয়েছে</small>}
           </label>
           <h3 className="ship-head">{T("shipping_title", "Shipping")}</h3>
           {freeBoxes > 0 && (
@@ -186,7 +244,7 @@ export default function OrderForm({ products, delivery, freeBoxes = 0, text = {}
           </p>
           {error && <p className="error">{error}</p>}
           <button className="btn btn-block" disabled={status === "loading"}>
-            {status === "loading" ? "অপেক্ষা করুন..." : `${T("submit_btn", "অর্ডার করুন")}  ৳ ${tk(total)}`}
+            {status === "loading" ? "⏳ অর্ডার পাঠানো হচ্ছে..." : `${T("submit_btn", "অর্ডার করুন")}  ৳ ${tk(total)}`}
           </button>
         </div>
       </div>

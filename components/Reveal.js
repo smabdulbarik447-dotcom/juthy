@@ -10,7 +10,7 @@ const GROUPS = [
   [".hero-info > :not(.features)", "alt"],
   [".features .feature", "alt"],
   [".gallery", "r"],
-  [".section-head > *", "alt"],
+  [".section:not(#order) .section-head > *", "alt"], // order form er heading shoja dekhay
   [".ex-card", "alt"],
   [".spot-img", "l"],
   [".spot-body > *", "alt"],
@@ -24,7 +24,6 @@ const GROUPS = [
   [".offer-strip", "l"],
   [".compare + .center", "up"],
   [".cod-banner > *", "alt"],
-  [".checkout", "up"],
   [".footer > *", "alt"],
 ];
 

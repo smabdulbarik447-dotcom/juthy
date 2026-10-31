@@ -9,6 +9,8 @@ import Brand from "@/components/Brand";
 import VoicePlayer from "@/components/VoicePlayer";
 import Reveal from "@/components/Reveal";
 import RevealInit from "@/components/RevealInit";
+import OfferCountdown from "@/components/OfferCountdown";
+import SocialProof from "@/components/SocialProof";
 import "./motion.css";
 
 // Admin > ল্যান্ডিং পেজ টেক্সট er lekha + {price} er moto token boshano
@@ -76,6 +78,8 @@ export default async function Home() {
         <span className="topbar-cod">{t("topbar_cod")}</span>
       </div>
 
+      <OfferCountdown end={s.offer_end} text={s.offer_text} />
+
       <header className="header">
         <div className="container header-inner">
           <Brand s={s} />
@@ -127,7 +131,7 @@ export default async function Home() {
               </div>
 
               <div className="gift-note">
-                <img src="/images/gift.png" alt="Secret Perfume 6ml" />
+                <img src="/images/gift.webp" alt="Secret Perfume 6ml" />
                 <div>
                   <b>{t("gift_title")}</b>
                   <p>{t("gift_sub")}</p>
@@ -165,7 +169,7 @@ export default async function Home() {
       <section className="section alt">
         <div className="container gift-grid">
           <div className="gift-img">
-            <img src="/images/gift.png" alt="Secret Perfume 6ml" />
+            <img src="/images/gift.webp" alt="Secret Perfume 6ml" />
           </div>
           <div>
             <span className="eyebrow">{t("gift_eyebrow")}</span>
@@ -274,9 +278,12 @@ export default async function Home() {
           <div className="section-head">
             <h2><H text={t("order_title")} /></h2>
           </div>
+          <OfferCountdown end={s.offer_end} text={s.offer_text} compact />
           <OrderForm products={products} delivery={delivery} freeBoxes={freeBoxes} text={formText} />
         </div>
       </section>
+
+      {s.social_proof !== "off" && <SocialProof />}
 
       <footer className="footer">
         <Brand s={s} className="center-brand" />

@@ -318,16 +318,6 @@
 @media (max-width: 900px) { .clock-widget { order: 3; width: 100%; justify-content: center; } }
 @media (prefers-reduced-motion: reduce) { .mist { display: none; } }
 
-/* ---- Live order ticker ---- */
-.ticker { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; padding: 8px 10px; border-radius: 14px; background: linear-gradient(90deg, #fff7ed, #fef3c7, #fae8ff); border: 1px solid #fde68a; overflow: hidden; }
-.ticker-tag { flex: none; padding: 3px 10px; border-radius: 999px; background: linear-gradient(135deg, #ef4444, #f97316); color: #fff; font-weight: 800; font-size: .78rem; box-shadow: 0 0 0 0 rgba(239, 68, 68, .6); animation: tag-ping 1.6s infinite; }
-@keyframes tag-ping { to { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } }
-.ticker-track { flex: 1; overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
-.ticker-move { display: flex; gap: 36px; width: max-content; animation: ticker 45s linear infinite; }
-.ticker:hover .ticker-move { animation-play-state: paused; }
-.ticker-move span { white-space: nowrap; font-size: .88rem; color: #4c1d95; }
-.ticker-move i { font-style: normal; color: #9a3412; font-size: .8rem; }
-@keyframes ticker { to { transform: translateX(-50%); } }
 
 /* ---- Order calendar ---- */
 .cal { margin-top: 8px; }
@@ -368,7 +358,6 @@
 .goal-body li b { font-size: 1rem; color: #1f2937; }
 .goal-body li b.gold { color: #d97706; }
 @keyframes goal-in { from { transform: rotate(-90deg) scale(.6); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .ticker-move { animation: none; } }
 
 /* ---- Courier rating: boro card, ring + bar ---- */
 .chist.big { position: relative; overflow: hidden; gap: 12px; padding: 8px 18px 8px 8px; border-radius: 18px; white-space: normal; font-weight: 600; box-shadow: 0 8px 22px rgba(0, 0, 0, .18), inset 0 1px 0 rgba(255, 255, 255, .35); }
@@ -400,3 +389,313 @@
   .adm .order-body { grid-template-columns: 1fr; }
   .adm .order-rate { justify-content: flex-start; }
 }
+
+/* ---- Order edit: taka + ফ্রি ডেলিভারি ---- */
+.adm .edit-money { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+.adm .edit-money label small { display: block; font-size: .75rem; color: #6b7280; margin-bottom: 2px; }
+.adm .free-del { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1.5px dashed #a78bfa; color: #6d28d9; font-weight: 700; font-size: .85rem; cursor: pointer; user-select: none; }
+.adm .free-del input { width: auto; accent-color: #16a34a; }
+.adm .free-del.on { background: linear-gradient(135deg, #dcfce7, #ecfccb); border: 1.5px solid #16a34a; color: #15803d; }
+.adm .edit-hint { font-size: .72rem; color: #9ca3af; }
+.adm .free-chip { justify-self: end; display: inline-block; padding: 2px 10px; border-radius: 999px; background: linear-gradient(135deg, #16a34a, #84cc16); color: #fff; font-size: .75rem; font-weight: 700; }
+
+/* Courier disconnect/connect switch (box er heading e) */
+.courier-toggle {
+  float: right; margin-left: 10px; padding: 6px 14px; border-radius: 999px; border: 0;
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: transform .15s, box-shadow .15s;
+}
+.courier-toggle.is-on { background: #fee2e2; color: #b91c1c; }
+.courier-toggle.is-off { background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; box-shadow: 0 6px 16px rgba(22, 163, 74, .3); }
+.courier-toggle:hover:not(:disabled) { transform: translateY(-1px); }
+.courier-toggle:disabled { opacity: .6; cursor: wait; }
+
+
+/* ===== 3 kolam er grid (jela / shomoy / loyal) ===== */
+.dash-grid.trio { grid-template-columns: repeat(3, 1fr); }
+.dash-grid.trio > .panel:nth-child(1) { --pg: var(--g-green); }
+.dash-grid.trio > .panel:nth-child(2) { --pg: var(--g-orange); }
+.dash-grid.trio > .panel:nth-child(3) { --pg: var(--g-purple); }
+
+/* জেলা লিডারবোর্ড */
+.dist-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.dist-list li { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; }
+.dist-rank { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: .78rem; font-weight: 700; background: #f3f4f6; color: #4b5563; }
+.dist-list li:nth-child(1) .dist-rank { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #fff; }
+.dist-list li:nth-child(2) .dist-rank { background: linear-gradient(135deg, #d1d5db, #9ca3af); color: #fff; }
+.dist-list li:nth-child(3) .dist-rank { background: linear-gradient(135deg, #fdba74, #c2410c); color: #fff; }
+.dist-main { min-width: 0; }
+.dist-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.dist-top b { font-size: .9rem; }
+.dist-top small { font-size: .72rem; color: #6b7280; white-space: nowrap; }
+.dist-bar { display: block; height: 6px; margin-top: 4px; border-radius: 99px; background: #f1f0f9; overflow: hidden; }
+.dist-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #22c55e, #14b8a6); animation: dist-grow 1s cubic-bezier(.2, .8, .2, 1) backwards; }
+@keyframes dist-grow { from { width: 0 !important; } }
+.dist-ok { min-width: 46px; text-align: center; padding: 3px 8px; border-radius: 99px; font-size: .75rem; font-weight: 700; background: #f3f4f6; color: #6b7280; }
+.dist-ok.good { background: #dcfce7; color: #15803d; }
+.dist-ok.mid { background: #fef3c7; color: #b45309; }
+.dist-ok.bad { background: #fee2e2; color: #b91c1c; }
+
+/* কখন অর্ডার বেশি আসে */
+.when-grid { display: grid; grid-template-columns: auto repeat(6, 1fr); gap: 4px; align-items: center; }
+.when-slot { font-size: .6rem; color: #6b7280; text-align: center; line-height: 1.15; }
+.when-day { font-size: .72rem; color: #4b5563; padding-right: 4px; }
+.when-day.best { color: #ea580c; font-weight: 700; }
+.when-cell { --a: 0; aspect-ratio: 1.35; border-radius: 7px; display: grid; place-items: center; font-size: .7rem; font-weight: 700; color: #fff; background: rgba(249, 115, 22, var(--a)); outline: 1px solid #f3f0ea; transition: transform .15s; }
+.when-cell:hover { transform: scale(1.12); }
+.when-cell.best { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f97316, 0 6px 14px rgba(249, 115, 22, .45); }
+.when-tip { margin: 12px 0 0; padding: 8px 10px; border-radius: 12px; background: #fff7ed; color: #7c2d12; font-size: .8rem; }
+
+/* লয়্যাল কাস্টমার */
+.loyal-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.loyal-stats div { padding: 10px; border-radius: 14px; background: linear-gradient(135deg, #f5f3ff, #fdf2f8); border: 1px solid #ede9fe; }
+.loyal-stats b { display: block; font-size: 1.2rem; color: #6d28d9; }
+.loyal-stats small { font-size: .7rem; color: #6b7280; }
+.loyal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.loyal-list li { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; padding: 7px 9px; border-radius: 12px; background: #faf8ff; border: 1px solid var(--a-line); }
+.loyal-medal { font-size: 1.15rem; text-align: center; font-weight: 700; color: #9ca3af; }
+.loyal-list b { display: block; font-size: .86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.loyal-list small { font-size: .7rem; color: #6b7280; }
+.loyal-amt { font-weight: 700; color: #15803d; font-size: .86rem; }
+
+@media (max-width: 1200px) {
+  .dash-grid.trio { grid-template-columns: 1fr 1fr; }
+  .dash-grid.trio > .panel:nth-child(3) { grid-column: 1 / -1; }
+}
+@media (max-width: 900px) {
+  .dash-grid.trio { grid-template-columns: 1fr; }
+}
+
+/* ===== সেলস ফানেল ===== */
+.funnel { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.funnel li { display: grid; justify-items: center; gap: 2px; }
+.funnel-bar { display: grid; place-items: center; height: 30px; border-radius: 10px; color: #fff; box-shadow: 0 6px 14px rgba(0, 0, 0, .1); animation: funnel-in .8s cubic-bezier(.2, .8, .2, 1) backwards; }
+.funnel li:nth-child(2) .funnel-bar { animation-delay: .08s; }
+.funnel li:nth-child(3) .funnel-bar { animation-delay: .16s; }
+.funnel li:nth-child(4) .funnel-bar { animation-delay: .24s; }
+.funnel li:nth-child(5) .funnel-bar { animation-delay: .32s; }
+.funnel-bar b { font-size: .95rem; }
+.funnel small { font-size: .74rem; color: #4b5563; }
+.funnel small em { font-style: normal; color: #dc2626; font-weight: 700; }
+@keyframes funnel-in { from { transform: scaleX(.2); opacity: 0; } }
+
+/* ===== টাকা কোথায় আছে ===== */
+.flow-bar { display: flex; height: 16px; border-radius: 99px; overflow: hidden; background: #f1f0f9; margin-bottom: 12px; }
+.flow-bar span { height: 100%; transition: filter .2s; animation: dist-grow 1s cubic-bezier(.2, .8, .2, 1) backwards; }
+.flow-bar span:hover { filter: brightness(1.15); }
+.flow-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.flow-list li { display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 12px; background: #fafafa; border: 1px solid var(--a-line); }
+.flow-list i { width: 12px; height: 12px; border-radius: 4px; }
+.flow-list small { font-size: .78rem; color: #4b5563; }
+.flow-list b { font-size: .88rem; }
+.flow-list li.loss { background: #fef2f2; border-color: #fecaca; }
+.flow-list li.loss i { background: #ef4444; }
+.flow-list li.loss b { color: #b91c1c; }
+
+/* ===== রেকর্ড ও সুরক্ষা ===== */
+.rec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rec { padding: 10px; border-radius: 14px; display: grid; gap: 2px; }
+.rec small { font-size: .7rem; color: #6b7280; }
+.rec b { font-size: 1rem; line-height: 1.2; }
+.rec em { font-style: normal; font-size: .66rem; color: #6b7280; }
+.rec.gold { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; }
+.rec.gold b { color: #b45309; }
+.rec.fire { background: linear-gradient(135deg, #fff7ed, #ffedd5); border: 1px solid #fed7aa; }
+.rec.fire b { color: #c2410c; }
+.rec.shield { background: linear-gradient(135deg, #eff6ff, #e0e7ff); border: 1px solid #c7d2fe; }
+.rec.shield b { color: #4338ca; }
+.rec-race { margin-top: 12px; padding: 10px 12px; border-radius: 14px; background: linear-gradient(120deg, #0f172a, #312e81); color: #fff; }
+.rec-race div { display: flex; justify-content: space-between; font-size: .74rem; opacity: .85; }
+.rec-race span { display: block; height: 10px; margin: 6px 0; border-radius: 99px; background: rgba(255, 255, 255, .15); overflow: hidden; }
+.rec-race span i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f59e0b, #ec4899); animation: dist-grow 1.2s cubic-bezier(.2, .8, .2, 1) backwards; }
+.rec-race p { margin: 0; font-size: .82rem; font-weight: 600; }
+@media (max-width: 520px) { .rec-grid { grid-template-columns: 1fr 1fr; } }
+
+/* ===== Quick bar: search + Telegram report ===== */
+.qbar { display: flex; gap: 10px; margin: 0 0 14px; flex-wrap: wrap; }
+.qbar-search { flex: 1 1 320px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 14px; background: #fff; border: 1.5px solid #e9e5ff; box-shadow: 0 6px 16px rgba(124, 58, 237, .08); transition: border-color .2s, box-shadow .2s; }
+.qbar-search:focus-within { border-color: #8b5cf6; box-shadow: 0 0 0 4px rgba(139, 92, 246, .15); }
+.qbar-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; padding: 12px 0; font: inherit; font-size: .9rem; }
+.qbar-btn { padding: 0 18px; min-height: 46px; border: 0; border-radius: 14px; font: inherit; font-weight: 700; font-size: .88rem; color: #fff; cursor: pointer; background: linear-gradient(135deg, #0ea5e9, #6366f1); box-shadow: 0 8px 18px rgba(14, 165, 233, .3); transition: transform .15s; }
+.qbar-btn:hover:not(:disabled) { transform: translateY(-2px); }
+.qbar-btn:disabled { opacity: .7; cursor: wait; }
+
+/* ===== কল কিউ ===== */
+@media (max-width: 900px) {
+}
+
+/* ===== Facebook অ্যাড page ===== */
+.ad-acc { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.ad-acc .range-tabs { margin-left: auto; }
+.ad-list { display: grid; gap: 12px; margin-bottom: 20px; }
+.ad-card { padding: 14px 16px; border-radius: 18px; background: #fff; border: 1px solid var(--a-line); box-shadow: var(--a-shadow); border-left: 5px solid #1877f2; }
+.ad-card.off { border-left-color: #cbd5e1; opacity: .85; }
+.ad-card header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ad-name { flex: 1; min-width: 180px; }
+.ad-name b { display: block; font-size: 1rem; }
+.ad-name small { font-size: .74rem; color: #6b7280; }
+.ad-toggle-wrap { display: inline-grid; gap: 2px; }
+.ad-switch { position: relative; width: 46px; height: 26px; border: 0; border-radius: 99px; background: #cbd5e1; cursor: pointer; transition: background .2s; flex: none; }
+.ad-switch i { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .2); transition: transform .2s; }
+.ad-switch.on { background: #1877f2; }
+.ad-switch.on i { transform: translateX(20px); }
+.ad-switch:disabled { opacity: .6; cursor: wait; }
+.ad-budget { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ad-budget input { width: 90px; padding: 6px 8px; border: 1.5px solid #dbe4ff; border-radius: 10px; font: inherit; font-weight: 700; }
+.ad-budget span { font-size: .76rem; color: #6b7280; }
+.ad-budget button { padding: 6px 12px; border: 0; border-radius: 10px; background: #1877f2; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.ad-life { font-size: .78rem; color: #6b7280; }
+.ad-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 12px; }
+.ad-stats div { padding: 8px 10px; border-radius: 12px; background: #f8fafc; }
+.ad-stats small { display: block; font-size: .7rem; color: #6b7280; }
+.ad-stats b { font-size: .95rem; }
+.ad-stats .warn { background: #fee2e2; }
+.ad-stats .warn b { color: #b91c1c; }
+.ad-stats .ours { background: #ecfdf5; }
+.ad-stats .ours b { color: #047857; font-size: .85rem; }
+.ad-sets { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.ad-sets li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 10px; border-radius: 12px; background: #f8fafc; }
+.ad-set-name { flex: 1; min-width: 140px; font-size: .86rem; }
+.ad-steps { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 4px; font-size: .84rem; color: #374151; }
+@media (max-width: 900px) {
+  .ad-stats { grid-template-columns: repeat(3, 1fr); }
+  .ad-acc .range-tabs { margin-left: 0; }
+}
+/* ---------- কাস্টমার প্রোফাইল ---------- */
+.adm a.cust { color: inherit; text-decoration: none; font-weight: 700; }
+.adm a.cust:hover { color: #7c3aed; text-decoration: underline; }
+.loyal-list a { color: inherit; text-decoration: none; min-width: 0; }
+.cust-head { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.cust-avatar { width: 58px; height: 58px; border-radius: 18px; display: grid; place-items: center; font-size: 1.6rem; font-weight: 700; color: #fff; background: var(--g-purple); }
+.cust-main { flex: 1; min-width: 220px; display: grid; gap: 4px; }
+.cust-main h2 { margin: 0; font-size: 1.3rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cust-badge { font-size: .75rem; font-weight: 600; padding: 3px 10px; border-radius: 99px; background: #f3e8ff; color: #7e22ce; }
+.cust-main .contact { display: flex; gap: 12px; flex-wrap: wrap; font-size: .88rem; }
+.cust-rate { font-size: 1rem; margin: 6px 0 10px; }
+.cust-rate b { font-size: 1.6rem; }
+.cust-rate.good b { color: #059669; } .cust-rate.mid b { color: #d97706; } .cust-rate.bad b { color: #dc2626; }
+.cust-couriers, .cust-addr { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cust-couriers li { display: flex; justify-content: space-between; gap: 8px; padding: 7px 10px; background: #faf8ff; border-radius: 10px; font-size: .85rem; }
+.cust-addr li { padding: 7px 10px; background: #faf8ff; border-radius: 10px; font-size: .88rem; }
+.cust-orders { display: grid; gap: 6px; }
+.cust-order { display: grid; grid-template-columns: 90px 150px 1fr auto auto; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--a-line); color: inherit; text-decoration: none; font-size: .86rem; }
+.cust-order:hover { border-color: #c4b5fd; background: #faf8ff; }
+.cust-note { grid-column: 1 / -1; color: #6b7280; }
+@media (max-width: 760px) { .cust-order { grid-template-columns: 1fr auto; } .cust-order .cust-prod { grid-column: 1 / -1; } }
+
+
+/* ---------- সোর্স / কুরিয়ার তুলনা / আবার কেনা ---------- */
+.src-list, .cmp-list, .ro-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.src-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.src-top b { font-size: .88rem; }
+.src-top small, .src-sub { font-size: .72rem; color: #6b7280; }
+.src-bar { display: block; height: 8px; border-radius: 99px; background: #f3f4f6; margin: 4px 0 2px; overflow: hidden; }
+.src-bar i { display: block; height: 100%; border-radius: 99px; }
+.cmp-list li { display: grid; grid-template-columns: 54px 1fr; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: #faf8ff; border: 1px solid var(--a-line); }
+.cmp-list b { font-size: .88rem; }
+.cmp-list small { display: block; font-size: .72rem; color: #6b7280; }
+.cmp-ring { --c: #9ca3af; width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--c) calc(var(--p) * 1%), #e5e7eb 0); }
+.cmp-ring b { width: 38px; height: 38px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: .72rem; }
+.cmp-list .good .cmp-ring { --c: #16a34a; } .cmp-list .mid .cmp-ring { --c: #f59e0b; } .cmp-list .bad .cmp-ring { --c: #ef4444; }
+.cmp-tip { margin: 10px 0 0; font-size: .8rem; color: #065f46; background: #ecfdf5; padding: 7px 10px; border-radius: 10px; }
+.ro-left { margin: 0 0 8px; font-size: .78rem; color: #7c3aed; font-weight: 600; }
+.ro-list { gap: 6px; max-height: 330px; overflow-y: auto; }
+.ro-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; padding: 7px 9px; border-radius: 12px; background: #faf8ff; border: 1px solid var(--a-line); }
+.ro-list li.done { opacity: .5; }
+.ro-list a { color: inherit; text-decoration: none; }
+.ro-list b { display: block; font-size: .86rem; }
+.ro-list small { font-size: .7rem; color: #6b7280; }
+.ro-btn { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: #fff; border: 1px solid var(--a-line); }
+.ro-btn.wa { background: #dcfce7; border-color: #86efac; }
+
+/* ---------- চোখ ধাঁধানো: live ticker, notun order popup, confetti, celebration ---------- */
+.ticker { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding: 9px 14px; border-radius: 14px; overflow: hidden;
+  background: linear-gradient(90deg, #1e1b4b, #4c1d95 50%, #831843); color: #fff; box-shadow: 0 8px 24px rgba(76, 29, 149, .25); }
+.ticker-live { flex: none; display: flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 800; letter-spacing: 1px; background: #ef4444; padding: 4px 10px; border-radius: 99px; }
+.ticker-live i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: tk-blink 1s infinite; }
+.ticker-track { flex: 1; overflow: hidden; display: flex; mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+.ticker-row { flex: none; display: flex; gap: 36px; padding-right: 36px; animation: tk-move 60s linear infinite; }
+.ticker:hover .ticker-row { animation-play-state: paused; }
+.ticker-item { white-space: nowrap; font-size: .85rem; color: #e9d5ff; }
+.ticker-item b { color: #fff; }
+.ticker-item .tk { color: #fde047; }
+.ticker-item em { font-style: normal; color: #c4b5fd; font-size: .78rem; }
+@keyframes tk-move { to { transform: translateX(-100%); } }
+@keyframes tk-blink { 50% { opacity: .2; } }
+
+.live-toasts { position: fixed; right: 18px; bottom: 18px; z-index: 1000; display: grid; gap: 10px; width: min(360px, calc(100vw - 32px)); }
+.live-toast { display: grid; grid-template-columns: 46px 1fr auto; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 16px; text-decoration: none; color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #db2777); box-shadow: 0 16px 40px rgba(124, 58, 237, .45); animation: lt-in .6s cubic-bezier(.34, 1.56, .64, 1); }
+.live-bell { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 1.5rem; background: rgba(255, 255, 255, .2); animation: lt-ring 1s ease 3; }
+.live-txt { display: grid; min-width: 0; }
+.live-txt small { font-size: .7rem; opacity: .85; font-weight: 700; letter-spacing: .3px; }
+.live-txt b, .live-txt em { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.live-txt em { font-style: normal; font-size: .78rem; opacity: .9; }
+.live-amt { font-size: 1.1rem; color: #fde047; }
+@keyframes lt-in { from { opacity: 0; transform: translateX(120%) scale(.8); } }
+@keyframes lt-ring { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-18deg); } 40% { transform: rotate(16deg); } 60% { transform: rotate(-10deg); } 80% { transform: rotate(6deg); } }
+
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 1001; overflow: hidden; }
+.confetti i { position: absolute; top: -14px; width: 9px; height: 14px; border-radius: 2px; animation: cf-fall linear forwards; }
+@keyframes cf-fall { to { transform: translate(var(--dx), 105vh) rotate(var(--r)); opacity: .9; } }
+
+.celebrate-banner { margin-bottom: 14px; padding: 14px 18px; border-radius: 16px; font-weight: 700; font-size: 1.02rem; color: #78350f; text-align: center;
+  background: linear-gradient(90deg, #fef3c7, #fde68a, #fbcfe8, #fef3c7); background-size: 300% 100%; animation: cb-shine 6s linear infinite; border: 1px solid #fcd34d; }
+@keyframes cb-shine { to { background-position: 300% 0; } }
+
+@media (prefers-reduced-motion: reduce) { .ticker-row { animation: none; } }
+
+/* ---------- লেভেল ও অর্জন ---------- */
+.dash-grid.one-col { grid-template-columns: 1fr; }
+.panel.game { --pg: var(--g-orange); }
+.game-count { font-size: .8rem; font-weight: 700; padding: 6px 12px; border-radius: 99px; background: #fef3c7; color: #92400e; white-space: nowrap; }
+.game-body { display: grid; grid-template-columns: 260px 1fr; gap: 16px; align-items: stretch; }
+.lvl-card { display: grid; justify-items: center; align-content: center; gap: 4px; padding: 18px; border-radius: 20px; text-align: center; color: #fff;
+  background: radial-gradient(circle at 30% 20%, #a78bfa, #6d28d9 55%, #4c1d95); box-shadow: 0 14px 30px rgba(109, 40, 217, .35); position: relative; overflow: hidden; }
+.lvl-card::before { content: ""; position: absolute; inset: -40%; background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, .18), transparent 30%); animation: lvl-spin 6s linear infinite; }
+.lvl-card > * { position: relative; }
+.lvl-icon { font-size: 3rem; line-height: 1; animation: lvl-bob 2.4s ease-in-out infinite; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .3)); }
+.lvl-card small { font-size: .72rem; letter-spacing: 1px; opacity: .85; font-weight: 700; }
+.lvl-card b { font-size: 1.25rem; }
+.lvl-bar { width: 100%; height: 10px; border-radius: 99px; background: rgba(255, 255, 255, .25); overflow: hidden; margin-top: 6px; }
+.lvl-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #fde047, #f59e0b); box-shadow: 0 0 12px #fde047; }
+.lvl-card em { font-style: normal; font-size: .74rem; opacity: .92; }
+@keyframes lvl-spin { to { transform: rotate(360deg); } }
+@keyframes lvl-bob { 50% { transform: translateY(-6px) scale(1.05); } }
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.badge-item { display: grid; justify-items: center; gap: 3px; padding: 10px 8px; border-radius: 16px; text-align: center; background: #f9fafb; border: 1px dashed #d1d5db; transition: transform .2s; }
+.badge-item:hover { transform: translateY(-3px); }
+.badge-item b { font-size: .76rem; line-height: 1.25; color: #6b7280; }
+.badge-item small { font-size: .68rem; color: #9ca3af; }
+.badge-ico { font-size: 1.6rem; filter: grayscale(1); opacity: .55; }
+.badge-bar { width: 80%; height: 5px; border-radius: 99px; background: #e5e7eb; overflow: hidden; }
+.badge-bar i { display: block; height: 100%; background: #a78bfa; border-radius: 99px; }
+.badge-item.done { background: linear-gradient(160deg, #fffbeb, #fef3c7); border: 1px solid #fcd34d; box-shadow: 0 6px 16px rgba(245, 158, 11, .18); }
+.badge-item.done b { color: #78350f; }
+.badge-item.done .badge-ico { filter: none; opacity: 1; animation: badge-pop 3s ease-in-out infinite; }
+.badge-ok { color: #16a34a !important; font-weight: 700; }
+@keyframes badge-pop { 0%, 90%, 100% { transform: scale(1) rotate(0); } 95% { transform: scale(1.2) rotate(-8deg); } }
+@media (max-width: 760px) { .game-body { grid-template-columns: 1fr; } }
+
+/* ---------- Page bodlanor shomoy halka kankal (loading.js) ---------- */
+.adm-skel { display: grid; gap: 16px; animation: skel-in .15s ease; }
+.skel { border-radius: 16px; background: linear-gradient(90deg, #f1edff 0%, #faf8ff 40%, #f1edff 80%); background-size: 300% 100%; animation: skel-shine 1.2s linear infinite; }
+.skel-title { height: 34px; width: 220px; }
+.skel-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.skel-card { height: 92px; }
+.skel-block { height: 260px; }
+.skel-block.short { height: 160px; }
+@keyframes skel-shine { to { background-position: -300% 0; } }
+@keyframes skel-in { from { opacity: 0; } }
+@media (max-width: 760px) { .skel-row { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- Order: kon platform theke + courier % customer er thik dan pashe ---------- */
+.src-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: .76rem; font-weight: 700; white-space: nowrap; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+.src-chip.s-fb { background: #e7f0ff; color: #1859c9; border-color: #bcd3ff; }
+.src-chip.s-ig { background: linear-gradient(90deg, #fdf2f8, #fff7ed); color: #be185d; border-color: #fbcfe8; }
+.src-chip.s-msg { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+.src-chip.s-tiktok { background: #111827; color: #fff; border-color: #111827; }
+.src-chip.s-google { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.src-chip.s-call { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.adm .order-body { grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1fr); align-items: start; }
+.adm .order-rate { display: flex; align-items: center; gap: 6px; justify-self: start; }
+@media (max-width: 900px) { .adm .order-body { grid-template-columns: 1fr; } }

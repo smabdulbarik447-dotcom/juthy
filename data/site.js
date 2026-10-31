@@ -26,7 +26,7 @@ export const site = {
     "/images/sauvage.avif",
     "/images/hawas-fire.webp",
     "/images/vampire-blood.avif",
-    "/images/gift.png",
+    "/images/gift.webp",
   ],
 
   features: [

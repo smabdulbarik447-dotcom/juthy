@@ -64,6 +64,33 @@ export default async function SettingsPage() {
           </label>
         </SaveForm>
       </div>
+
+      <div className="adm-box adm-narrow">
+        <SaveForm action={saveSettingsAction}>
+          <h3>🔥 বিক্রি বাড়ানো (ল্যান্ডিং পেজ)</h3>
+          <p className="adm-muted adm-intro-sm">
+            অফার কখন শেষ হবে সেটা দিলে পেজের উপরে আর অর্ডার ফর্মের উপরে উল্টো ঘড়ি (দিন:ঘণ্টা:মিনিট:সেকেন্ড) চলবে — সময় শেষ হলে নিজে থেকে লুকিয়ে যাবে।
+            খালি রাখলে ঘড়ি দেখাবে না।
+          </p>
+          <div className="adm-row">
+            <label>
+              অফার শেষ হবে (বাংলাদেশ সময়)
+              <input name="offer_end" type="datetime-local" defaultValue={s.offer_end} />
+            </label>
+            <label>
+              ঘড়ির পাশের লেখা
+              <input name="offer_text" defaultValue={s.offer_text} placeholder="🔥 অফার শেষ হতে বাকি" />
+            </label>
+          </div>
+          <label>
+            “এইমাত্র অর্ডার করেছেন” পপআপ (শেষ ৩ দিনের আসল অর্ডার — শুধু নামের প্রথম অংশ আর জেলা, নাম্বার/ঠিকানা দেখায় না)
+            <select name="social_proof" defaultValue={s.social_proof}>
+              <option value="on">✅ চালু</option>
+              <option value="off">বন্ধ</option>
+            </select>
+          </label>
+        </SaveForm>
+      </div>
     </>
   );
 }

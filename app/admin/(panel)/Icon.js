@@ -20,6 +20,7 @@ const PATHS = {
   up: <path d="m3 17 6-6 4 4 8-8M15 7h6v6" />,
   down: <path d="m3 7 6 6 4-4 8 8M15 17h6v-6" />,
   arrow: <path d="M7 17 17 7M8 7h9v9" />,
+  megaphone: <><path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z" /><path d="M16 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /></>,
 };
 
 export default function Icon({ name, size = 18, className = "" }) {
